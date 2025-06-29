@@ -83,6 +83,9 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPatternService, PatternService>();
 builder.Services.AddScoped<IEmotionService, EmotionService>();
 
+// Memory Cache for analytics
+builder.Services.AddMemoryCache();
+
 // Controllers
 builder.Services.AddControllers();
 

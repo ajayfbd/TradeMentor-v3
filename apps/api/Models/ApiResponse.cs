@@ -241,3 +241,237 @@ public class LoginResponseDto
     public required string Token { get; set; }
     public required UserDto User { get; set; }
 }
+
+// Enhanced Pattern Analysis DTOs
+public class DateRangeDto
+{
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public string Period { get; set; } = string.Empty; // "7d", "30d", "90d", "1y", "custom"
+}
+
+public class EmotionPerformanceCorrelationDto
+{
+    public double CorrelationCoefficient { get; set; }
+    public double PValue { get; set; }
+    public bool IsStatisticallySignificant { get; set; }
+    public List<EmotionLevelPerformanceDto> EmotionLevels { get; set; } = new();
+    public Dictionary<int, WinRateStatsDto> WinRateByLevel { get; set; } = new();
+    public CorrelationInsightsDto Insights { get; set; } = new();
+    public int SampleSize { get; set; }
+    public string AnalysisPeriod { get; set; } = string.Empty;
+}
+
+public class EmotionLevelPerformanceDto
+{
+    public int EmotionLevel { get; set; }
+    public double AverageReturn { get; set; }
+    public double WinRate { get; set; }
+    public int TradeCount { get; set; }
+    public double StandardDeviation { get; set; }
+    public double SharpeRatio { get; set; }
+    public double MaxDrawdown { get; set; }
+    public double ProfitFactor { get; set; }
+}
+
+public class WinRateStatsDto
+{
+    public double WinRate { get; set; }
+    public int TotalTrades { get; set; }
+    public int WinningTrades { get; set; }
+    public int LosingTrades { get; set; }
+    public double AverageWin { get; set; }
+    public double AverageLoss { get; set; }
+    public double ConfidenceInterval { get; set; }
+}
+
+public class CorrelationInsightsDto
+{
+    public string CorrelationStrength { get; set; } = string.Empty; // "Strong", "Moderate", "Weak", "None"
+    public string Recommendation { get; set; } = string.Empty;
+    public List<string> KeyFindings { get; set; } = new();
+    public int[] OptimalEmotionRange { get; set; } = new int[2];
+    public int[] AvoidEmotionRange { get; set; } = new int[2];
+}
+
+public class WeeklyEmotionTrendDto
+{
+    public DateTime WeekStartDate { get; set; }
+    public DateTime WeekEndDate { get; set; }
+    public string WeekLabel { get; set; } = string.Empty;
+    public double AverageEmotionLevel { get; set; }
+    public double EmotionVolatility { get; set; }
+    public double WinRate { get; set; }
+    public double AverageReturn { get; set; }
+    public int TotalTrades { get; set; }
+    public int EmotionChecks { get; set; }
+    public TrendDirection TrendDirection { get; set; }
+    public double TrendStrength { get; set; }
+    public List<DailyEmotionDataDto> DailyBreakdown { get; set; } = new();
+}
+
+public class DailyEmotionDataDto
+{
+    public DateTime Date { get; set; }
+    public double AverageEmotion { get; set; }
+    public int CheckCount { get; set; }
+    public double? TradePerformance { get; set; }
+}
+
+public enum TrendDirection
+{
+    Improving,
+    Declining,
+    Stable,
+    Volatile
+}
+
+public class PersonalizedInsightsDto
+{
+    public List<PersonalizedInsightDto> Insights { get; set; } = new();
+    public EmotionalTradingProfileDto TradingProfile { get; set; } = new();
+    public List<ActionableRecommendationDto> Recommendations { get; set; } = new();
+    public RiskAssessmentDto RiskAssessment { get; set; } = new();
+    public ProgressMetricsDto Progress { get; set; } = new();
+    public DateTime GeneratedAt { get; set; }
+    public string AnalysisPeriod { get; set; } = string.Empty;
+}
+
+public class PersonalizedInsightDto
+{
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public InsightType Type { get; set; }
+    public InsightPriority Priority { get; set; }
+    public double Impact { get; set; }
+    public double Confidence { get; set; }
+    public List<string> SupportingData { get; set; } = new();
+    public string Category { get; set; } = string.Empty;
+}
+
+public enum InsightType
+{
+    Positive,
+    Warning,
+    Opportunity,
+    Pattern,
+    Recommendation
+}
+
+public enum InsightPriority
+{
+    Low,
+    Medium,
+    High,
+    Critical
+}
+
+public class EmotionalTradingProfileDto
+{
+    public string ProfileType { get; set; } = string.Empty; // "Conservative", "Aggressive", "Balanced", "Emotional"
+    public double EmotionalStability { get; set; }
+    public double RiskTolerance { get; set; }
+    public double PressureHandling { get; set; }
+    public double ConsistencyScore { get; set; }
+    public List<string> Strengths { get; set; } = new();
+    public List<string> WeakAreas { get; set; } = new();
+    public Dictionary<string, double> TraitScores { get; set; } = new();
+}
+
+public class ActionableRecommendationDto
+{
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Action { get; set; } = string.Empty;
+    public double ExpectedImpact { get; set; }
+    public string Timeframe { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public int Priority { get; set; }
+}
+
+public class RiskAssessmentDto
+{
+    public string RiskLevel { get; set; } = string.Empty; // "Low", "Medium", "High", "Very High"
+    public double RiskScore { get; set; }
+    public List<string> RiskFactors { get; set; } = new();
+    public List<string> ProtectiveFactors { get; set; } = new();
+    public double EmotionalRiskTolerance { get; set; }
+    public string RecommendedPositionSizing { get; set; } = string.Empty;
+}
+
+public class ProgressMetricsDto
+{
+    public double EmotionStabilityTrend { get; set; }
+    public double PerformanceImprovement { get; set; }
+    public double ConsistencyImprovement { get; set; }
+    public int DaysAnalyzed { get; set; }
+    public DateTime FirstTradeDate { get; set; }
+    public Dictionary<string, double> MonthlyProgress { get; set; } = new();
+}
+
+public class OptimalTradingConditionsDto
+{
+    public List<OptimalConditionDto> BestConditions { get; set; } = new();
+    public List<ConditionToAvoidDto> ConditionsToAvoid { get; set; } = new();
+    public MarketTimingDto BestMarketTiming { get; set; } = new();
+    public EmotionalReadinessDto EmotionalReadiness { get; set; } = new();
+    public EnvironmentalFactorsDto EnvironmentalFactors { get; set; } = new();
+    public double OverallOptimizationScore { get; set; }
+    public DateTime LastUpdated { get; set; }
+}
+
+public class OptimalConditionDto
+{
+    public string ConditionName { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public double WinRate { get; set; }
+    public double AverageReturn { get; set; }
+    public int TradeCount { get; set; }
+    public double Confidence { get; set; }
+    public Dictionary<string, object> Parameters { get; set; } = new();
+}
+
+public class ConditionToAvoidDto
+{
+    public string ConditionName { get; set; } = string.Empty;
+    public string Reason { get; set; } = string.Empty;
+    public double WinRate { get; set; }
+    public double AverageReturn { get; set; }
+    public int TradeCount { get; set; }
+    public string Severity { get; set; } = string.Empty; // "Mild", "Moderate", "Severe"
+}
+
+public class MarketTimingDto
+{
+    public List<string> BestDaysOfWeek { get; set; } = new();
+    public List<string> BestHoursOfDay { get; set; } = new();
+    public List<string> BestMonths { get; set; } = new();
+    public Dictionary<string, double> DayPerformance { get; set; } = new();
+    public Dictionary<string, double> HourPerformance { get; set; } = new();
+}
+
+public class EmotionalReadinessDto
+{
+    public int[] OptimalEmotionRange { get; set; } = new int[2];
+    public int[] CautionEmotionRange { get; set; } = new int[2];
+    public int[] AvoidEmotionRange { get; set; } = new int[2];
+    public List<EmotionalStateDto> EmotionalStates { get; set; } = new();
+    public string CurrentReadinessLevel { get; set; } = string.Empty;
+}
+
+public class EmotionalStateDto
+{
+    public string StateName { get; set; } = string.Empty;
+    public int EmotionLevel { get; set; }
+    public double PerformanceMultiplier { get; set; }
+    public string Recommendation { get; set; } = string.Empty;
+}
+
+public class EnvironmentalFactorsDto
+{
+    public Dictionary<string, double> SymbolPerformance { get; set; } = new();
+    public Dictionary<string, double> MarketConditionPerformance { get; set; } = new();
+    public Dictionary<string, double> VolatilityPerformance { get; set; } = new();
+    public List<string> FavorableMarketConditions { get; set; } = new();
+    public List<string> ChallengingMarketConditions { get; set; } = new();
+}
