@@ -80,4 +80,176 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  /* Enhanced EmotionSlider styles */
+  .emotion-slider-track {
+    background: linear-gradient(to right, 
+      #DC2626 0%,   /* red-600 */
+      #EA580C 11%,  /* orange-600 */
+      #D97706 22%,  /* amber-600 */
+      #CA8A04 33%,  /* yellow-600 */
+      #65A30D 44%,  /* lime-600 */
+      #16A34A 55%,  /* green-600 */
+      #059669 66%,  /* emerald-600 */
+      #0891B2 77%,  /* cyan-600 */
+      #0284C7 88%,  /* sky-600 */
+      #2563EB 100%  /* blue-600 */
+    );
+    @apply rounded-full transition-all duration-300;
+  }
+
+  /* Touch-friendly slider styles */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+    outline: none;
+  }
+
+  /* WebKit browsers (Safari, Chrome) */
+  input[type="range"]::-webkit-slider-track {
+    @apply h-3 rounded-full;
+    background: linear-gradient(to right, 
+      #DC2626 0%, #EA580C 11%, #D97706 22%, #CA8A04 33%, #65A30D 44%,
+      #16A34A 55%, #059669 66%, #0891B2 77%, #0284C7 88%, #2563EB 100%
+    );
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    @apply w-8 h-8 rounded-full bg-white border-4 border-white shadow-lg;
+    cursor: pointer;
+    margin-top: -10px; /* Centers thumb on track */
+    transition: all 0.2s ease-in-out;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    @apply scale-110 shadow-xl;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:active {
+    @apply scale-125;
+  }
+
+  /* Firefox */
+  input[type="range"]::-moz-range-track {
+    @apply h-3 rounded-full border-0;
+    background: linear-gradient(to right, 
+      #DC2626 0%, #EA580C 11%, #D97706 22%, #CA8A04 33%, #65A30D 44%,
+      #16A34A 55%, #059669 66%, #0891B2 77%, #0284C7 88%, #2563EB 100%
+    );
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    @apply w-8 h-8 rounded-full bg-white border-4 border-white shadow-lg;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease-in-out;
+  }
+
+  input[type="range"]::-moz-range-thumb:hover {
+    @apply scale-110 shadow-xl;
+  }
+
+  input[type="range"]::-moz-range-thumb:active {
+    @apply scale-125;
+  }
+
+  /* Focus states for accessibility */
+  input[type="range"]:focus {
+    outline: none;
+  }
+
+  input[type="range"]:focus::-webkit-slider-thumb {
+    @apply ring-4 ring-primary ring-opacity-30;
+  }
+
+  input[type="range"]:focus::-moz-range-thumb {
+    @apply ring-4 ring-primary ring-opacity-30;
+  }
+
+  /* Disabled state */
+  input[type="range"]:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  input[type="range"]:disabled::-webkit-slider-thumb {
+    @apply cursor-not-allowed;
+  }
+
+  input[type="range"]:disabled::-moz-range-thumb {
+    @apply cursor-not-allowed;
+  }
+
+  /* Custom animation for emotion feedback */
+  @keyframes emotion-pulse {
+    0%, 100% { 
+      opacity: 1; 
+      transform: scale(1);
+    }
+    50% { 
+      opacity: 0.8; 
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes emotion-bounce {
+    0%, 20%, 53%, 80%, 100% { 
+      transform: translate3d(0,0,0); 
+    }
+    40%, 43% { 
+      transform: translate3d(0, -8px, 0); 
+    }
+    70% { 
+      transform: translate3d(0, -4px, 0); 
+    }
+    90% { 
+      transform: translate3d(0, -2px, 0); 
+    }
+  }
+
+  .emotion-scale {
+    animation: emotion-pulse 2s ease-in-out infinite;
+  }
+
+  .emotion-scale:hover {
+    animation: emotion-bounce 0.6s ease-in-out;
+  }
+
+  /* Touch feedback for mobile */
+  @media (pointer: coarse) {
+    input[type="range"]::-webkit-slider-thumb {
+      @apply w-10 h-10; /* Larger thumb for touch */
+      margin-top: -14px;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      @apply w-10 h-10; /* Larger thumb for touch */
+    }
+
+    .touch-target {
+      @apply min-h-[44px] min-w-[44px];
+    }
+
+    .touch-target-lg {
+      @apply min-h-[52px] min-w-[52px];
+    }
+  }
+
+  /* Reduce motion for accessibility */
+  @media (prefers-reduced-motion: reduce) {
+    .emotion-scale {
+      animation: none;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      transition: none;
+    }
+    
+    input[type="range"]::-moz-range-thumb {
+      transition: none;
+    }
+  }
 }
