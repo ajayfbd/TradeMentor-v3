@@ -1,13 +1,14 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace api.Models;
+namespace TradeMentor.Api.Models;
 
 public class EmotionCheck
 {
     public Guid Id { get; set; }
     
     [Required]
-    public Guid UserId { get; set; }
+    public string UserId { get; set; } = string.Empty;
     
     [Required]
     [Range(1, 10)]
@@ -19,6 +20,7 @@ public class EmotionCheck
     
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     
+    [MaxLength(1000)]
     public string? Notes { get; set; }
     
     [MaxLength(10)]
@@ -27,7 +29,8 @@ public class EmotionCheck
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
-    public User User { get; set; } = null!;
+    [ForeignKey("UserId")]
+    public virtual User User { get; set; } = null!;
 }
 
 public static class EmotionContext

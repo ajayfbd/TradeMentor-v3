@@ -1,34 +1,29 @@
+using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
 
-namespace api.Models;
+namespace TradeMentor.Api.Models;
 
-public class User
+public class User : IdentityUser
 {
-    public Guid Id { get; set; }
+    [MaxLength(100)]
+    public string? FirstName { get; set; }
     
-    [Required]
-    [EmailAddress]
-    [MaxLength(255)]
-    public string Email { get; set; } = string.Empty;
-    
-    [Required]
-    [MaxLength(255)]
-    public string PasswordHash { get; set; } = string.Empty;
+    [MaxLength(100)]
+    public string? LastName { get; set; }
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LastLoginAt { get; set; }
     
     [MaxLength(50)]
     public string Timezone { get; set; } = "UTC";
     
     public int StreakCount { get; set; } = 0;
-    
     public DateOnly? LastCheckDate { get; set; }
-    
+    public DateTime? LastEmotionCheckAt { get; set; }
     public bool IsActive { get; set; } = true;
-    
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
+    
     // Navigation properties
-    public ICollection<EmotionCheck> EmotionChecks { get; set; } = new List<EmotionCheck>();
-    public ICollection<Trade> Trades { get; set; } = new List<Trade>();
+    public virtual ICollection<EmotionCheck> EmotionChecks { get; set; } = new List<EmotionCheck>();
+    public virtual ICollection<Trade> Trades { get; set; } = new List<Trade>();
 }

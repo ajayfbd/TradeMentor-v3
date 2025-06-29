@@ -1,94 +1,101 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using api.Services;
-using api.DTOs;
-using api.Models;
+using TradeMentor.Api.Models;
+using TradeMentor.Api.Services;
 
-namespace api.Controllers;
+namespace TradeMentor.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, ILogger<AuthController> logger)
     {
         _authService = authService;
+        _logger = logger;
     }
 
-    [HttpPost("login")]
-    public async Task<ActionResult<AuthResponseDto>> Login(LoginRequestDto request)
+    /// <summary>
+    /// Register a new user
+    /// </summary>
+    [HttpPost("register")]
+    public async Task<ActionResult<ApiResponse<object>>> Register([FromBody] RegisterRequest request)
     {
         try
         {
-            var user = await _authService.ValidateUser(request.Email, request.Password);
-            if (user == null)
+            if (!ModelState.IsValid)
             {
-                return Unauthorized(new { message = "Invalid email or password" });
+                return BadRequest(ApiResponse<object>.ErrorResponse("Invalid request data"));
             }
 
-            var token = await _authService.GenerateJwtToken(user);
+            var result = await _authService.RegisterAsync(request);
             
-            var response = new AuthResponseDto
+            if (result.Success)
             {
-                Token = token,
-                User = new UserDto
-                {
-                    Id = user.Id,
-                    Email = user.Email,
-                    CreatedAt = user.CreatedAt,
-                    Timezone = user.Timezone,
-                    StreakCount = user.StreakCount,
-                    LastCheckDate = user.LastCheckDate,
-                    IsActive = user.IsActive
-                }
-            };
+                _logger.LogInformation("User registered successfully: {Email}", request.Email);
+                return Ok(result);
+            }
 
-            return Ok(response);
+            return BadRequest(result);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+            _logger.LogError(ex, "Error registering user: {Email}", request.Email);
+            return StatusCode(500, ApiResponse<object>.ErrorResponse("Registration failed"));
         }
     }
 
-    [HttpPost("register")]
-    public async Task<ActionResult<AuthResponseDto>> Register(RegisterRequestDto request)
+    /// <summary>
+    /// Login user
+    /// </summary>
+    [HttpPost("login")]
+    public async Task<ActionResult<ApiResponse<LoginResponse>>> Login([FromBody] LoginRequest request)
     {
         try
         {
-            var user = await _authService.CreateUser(
-                request.Email, 
-                request.Password, 
-                request.Timezone ?? "UTC"
-            );
-
-            var token = await _authService.GenerateJwtToken(user);
-            
-            var response = new AuthResponseDto
+            if (!ModelState.IsValid)
             {
-                Token = token,
-                User = new UserDto
-                {
-                    Id = user.Id,
-                    Email = user.Email,
-                    CreatedAt = user.CreatedAt,
-                    Timezone = user.Timezone,
-                    StreakCount = user.StreakCount,
-                    LastCheckDate = user.LastCheckDate,
-                    IsActive = user.IsActive
-                }
-            };
+                return BadRequest(ApiResponse<LoginResponseDto>.ErrorResponse("Invalid request data"));
+            }
 
-            return Ok(response);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
+            var result = await _authService.LoginAsync(request);
+            
+            if (result.Success)
+            {
+                _logger.LogInformation("User logged in successfully: {Email}", request.Email);
+                return Ok(result);
+            }
+
+            return Unauthorized(result);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Internal server error", details = ex.Message });
+            _logger.LogError(ex, "Error logging in user: {Email}", request.Email);
+            return StatusCode(500, ApiResponse<LoginResponse>.ErrorResponse("Login failed"));
+        }
+    }
+
+    /// <summary>
+    /// Logout user
+    /// </summary>
+    [HttpPost("logout")]
+    [Authorize]
+    public ActionResult<ApiResponse<object>> Logout()
+    {
+        try
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            
+            _logger.LogInformation("User logged out: {UserId}", userId);
+            return Ok(ApiResponse<object>.SuccessResponse(new { }, "Logged out successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error logging out user");
+            return StatusCode(500, ApiResponse<object>.ErrorResponse("Logout failed"));
         }
     }
 }

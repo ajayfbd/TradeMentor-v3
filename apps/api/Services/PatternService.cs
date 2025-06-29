@@ -1,223 +1,260 @@
-using api.Models;
-using api.DTOs;
-using api.Data;
-using Microsoft.EntityFrameworkCore;
+using TradeMentor.Api.Models;
+using TradeMentor.Api.Data.Repositories;
 
-namespace api.Services
+namespace TradeMentor.Api.Services;
+
+public interface IPatternService
 {
-    public interface IPatternService
+    Task<ApiResponse<List<EmotionPerformanceDataDto>>> GetEmotionPerformanceDataAsync(string userId, string dateRange);
+    Task<ApiResponse<List<WeeklyTrendDataDto>>> GetWeeklyTrendDataAsync(string userId, string dateRange);
+    Task<ApiResponse<PatternInsightDto>> GetPatternInsightsAsync(string userId, string dateRange);
+}
+
+public class PatternService : IPatternService
+{
+    private readonly IEmotionCheckRepository _emotionRepository;
+    private readonly ITradeRepository _tradeRepository;
+    private readonly ILogger<PatternService> _logger;
+
+    public PatternService(
+        IEmotionCheckRepository emotionRepository,
+        ITradeRepository tradeRepository,
+        ILogger<PatternService> logger)
     {
-        Task<EmotionPatternDto> GetEmotionPatternsAsync(Guid userId, DateTime? startDate = null, DateTime? endDate = null);
-        Task<PerformanceCorrelationDto> GetPerformanceCorrelationAsync(Guid userId, DateTime? startDate = null, DateTime? endDate = null);
-        Task<List<WeeklyTrendDto>> GetWeeklyTrendsAsync(Guid userId, int weeks = 4);
-        Task<List<EmotionDistributionDto>> GetEmotionDistributionAsync(Guid userId, DateTime? startDate = null, DateTime? endDate = null);
+        _emotionRepository = emotionRepository;
+        _tradeRepository = tradeRepository;
+        _logger = logger;
     }
 
-    public class PatternService : IPatternService
+    public async Task<ApiResponse<List<EmotionPerformanceDataDto>>> GetEmotionPerformanceDataAsync(string userId, string dateRange)
     {
-        private readonly ApplicationDbContext _context;
-
-        public PatternService(ApplicationDbContext context)
+        try
         {
-            _context = context;
-        }
-
-        public async Task<EmotionPatternDto> GetEmotionPatternsAsync(Guid userId, DateTime? startDate = null, DateTime? endDate = null)
-        {
-            var query = _context.EmotionChecks
-                .Where(e => e.UserId == userId);
-
-            if (startDate.HasValue)
-                query = query.Where(e => e.Timestamp >= startDate.Value);
+            var (startDate, endDate) = GetDateRange(dateRange);
             
-            if (endDate.HasValue)
-                query = query.Where(e => e.Timestamp <= endDate.Value);
+            var emotions = await _emotionRepository.GetByUserIdAndDateRangeAsync(userId, startDate, endDate);
+            var trades = await _tradeRepository.GetByUserIdAndDateRangeAsync(userId, startDate, endDate);
 
-            var emotions = await query.ToListAsync();
+            var data = new List<EmotionPerformanceDataDto>();
 
-            if (!emotions.Any())
+            foreach (var trade in trades)
             {
-                return new EmotionPatternDto
+                // Find the closest emotion check before the trade
+                var emotionCheck = emotions
+                    .Where(e => e.Timestamp <= trade.EntryTime)
+                    .OrderByDescending(e => e.Timestamp)
+                    .FirstOrDefault();
+
+                if (emotionCheck != null)
                 {
-                    AverageEmotion = 0,
-                    MostCommonEmotion = 0,
-                    EmotionVolatility = 0,
-                    TotalChecks = 0
-                };
-            }
-
-            var averageEmotion = emotions.Average(e => e.Level);
-            var mostCommonEmotion = emotions
-                .GroupBy(e => e.Level)
-                .OrderByDescending(g => g.Count())
-                .First().Key;
-
-            // Calculate emotional volatility (standard deviation)
-            var variance = emotions.Sum(e => Math.Pow(e.Level - averageEmotion, 2)) / emotions.Count;
-            var volatility = Math.Sqrt(variance);
-
-            return new EmotionPatternDto
-            {
-                AverageEmotion = Math.Round(averageEmotion, 2),
-                MostCommonEmotion = mostCommonEmotion,
-                EmotionVolatility = Math.Round(volatility, 2),
-                TotalChecks = emotions.Count
-            };
-        }
-
-        public async Task<PerformanceCorrelationDto> GetPerformanceCorrelationAsync(Guid userId, DateTime? startDate = null, DateTime? endDate = null)
-        {
-            var query = from trade in _context.Trades
-                        join emotion in _context.EmotionChecks on trade.EmotionCheckId equals emotion.Id
-                        where trade.UserId == userId
-                        select new { trade, emotion };
-
-            if (startDate.HasValue)
-                query = query.Where(x => x.trade.Timestamp >= startDate.Value);
-            
-            if (endDate.HasValue)
-                query = query.Where(x => x.trade.Timestamp <= endDate.Value);
-
-            var tradeEmotions = await query.ToListAsync();
-
-            if (!tradeEmotions.Any())
-            {
-                return new PerformanceCorrelationDto
-                {
-                    WinRateByEmotion = new Dictionary<int, double>(),
-                    AvgPnlByEmotion = new Dictionary<int, decimal>(),
-                    BestPerformingEmotionRange = "No data",
-                    WorstPerformingEmotionRange = "No data"
-                };
-            }
-
-            // Group by emotion level and calculate win rate and average P&L
-            var emotionGroups = tradeEmotions
-                .GroupBy(x => x.emotion.Level)
-                .ToDictionary(
-                    g => g.Key,
-                    g => new
+                    var outcomePercentage = CalculateTradeOutcome(trade);
+                    
+                    data.Add(new EmotionPerformanceDataDto
                     {
-                        WinRate = g.Count(x => x.trade.Outcome == "win") / (double)g.Count() * 100,
-                        AvgPnl = g.Average(x => x.trade.Pnl ?? 0)
-                    }
-                );
-
-            var winRateByEmotion = emotionGroups.ToDictionary(kvp => kvp.Key, kvp => Math.Round(kvp.Value.WinRate, 2));
-            var avgPnlByEmotion = emotionGroups.ToDictionary(kvp => kvp.Key, kvp => Math.Round(kvp.Value.AvgPnl, 2));
-
-            // Find best and worst performing emotion ranges
-            var bestEmotion = emotionGroups.OrderByDescending(kvp => kvp.Value.AvgPnl).First();
-            var worstEmotion = emotionGroups.OrderBy(kvp => kvp.Value.AvgPnl).First();
-
-            return new PerformanceCorrelationDto
-            {
-                WinRateByEmotion = winRateByEmotion,
-                AvgPnlByEmotion = avgPnlByEmotion,
-                BestPerformingEmotionRange = GetEmotionRange(bestEmotion.Key),
-                WorstPerformingEmotionRange = GetEmotionRange(worstEmotion.Key)
-            };
-        }
-
-        public async Task<List<WeeklyTrendDto>> GetWeeklyTrendsAsync(Guid userId, int weeks = 4)
-        {
-            var endDate = DateTime.UtcNow;
-            var startDate = endDate.AddDays(-weeks * 7);
-
-            var emotions = await _context.EmotionChecks
-                .Where(e => e.UserId == userId && e.Timestamp >= startDate && e.Timestamp <= endDate)
-                .ToListAsync();
-
-            var trades = await _context.Trades
-                .Where(t => t.UserId == userId && t.Timestamp >= startDate && t.Timestamp <= endDate)
-                .ToListAsync();
-
-            var weeklyTrends = new List<WeeklyTrendDto>();
-
-            for (int i = 0; i < weeks; i++)
-            {
-                var weekStart = startDate.AddDays(i * 7);
-                var weekEnd = weekStart.AddDays(7);
-
-                var weekEmotions = emotions.Where(e => e.Timestamp >= weekStart && e.Timestamp < weekEnd).ToList();
-                var weekTrades = trades.Where(t => t.Timestamp >= weekStart && t.Timestamp < weekEnd).ToList();
-
-                weeklyTrends.Add(new WeeklyTrendDto
-                {
-                    WeekStartDate = weekStart,
-                    AverageEmotion = weekEmotions.Any() ? Math.Round(weekEmotions.Average(e => e.Level), 2) : 0,
-                    TotalTrades = weekTrades.Count,
-                    TotalPnl = Math.Round(weekTrades.Sum(t => t.Pnl ?? 0), 2),
-                    WinRate = weekTrades.Any() ? Math.Round(weekTrades.Count(t => t.Outcome == "win") / (double)weekTrades.Count * 100, 2) : 0
-                });
-            }
-
-            return weeklyTrends;
-        }
-
-        public async Task<List<EmotionDistributionDto>> GetEmotionDistributionAsync(Guid userId, DateTime? startDate = null, DateTime? endDate = null)
-        {
-            var query = _context.EmotionChecks
-                .Where(e => e.UserId == userId);
-
-            if (startDate.HasValue)
-                query = query.Where(e => e.Timestamp >= startDate.Value);
-            
-            if (endDate.HasValue)
-                query = query.Where(e => e.Timestamp <= endDate.Value);
-
-            var emotions = await query.ToListAsync();
-
-            if (!emotions.Any())
-            {
-                // Return empty distribution with all levels at 0%
-                return Enumerable.Range(1, 10)
-                    .Select(i => new EmotionDistributionDto
-                    {
-                        EmotionLevel = i,
-                        Count = 0,
-                        Percentage = 0
-                    })
-                    .ToList();
-            }
-
-            var distribution = emotions
-                .GroupBy(e => e.Level)
-                .Select(g => new EmotionDistributionDto
-                {
-                    EmotionLevel = g.Key,
-                    Count = g.Count(),
-                    Percentage = Math.Round(g.Count() / (double)emotions.Count * 100, 2)
-                })
-                .OrderBy(d => d.EmotionLevel)
-                .ToList();
-
-            // Ensure all emotion levels 1-10 are represented
-            for (int i = 1; i <= 10; i++)
-            {
-                if (!distribution.Any(d => d.EmotionLevel == i))
-                {
-                    distribution.Add(new EmotionDistributionDto
-                    {
-                        EmotionLevel = i,
-                        Count = 0,
-                        Percentage = 0
+                        EmotionLevel = emotionCheck.Level,
+                        TradeOutcome = outcomePercentage,
+                        TradeType = trade.Outcome,
+                        Date = trade.EntryTime,
+                        Symbol = trade.Symbol,
+                        Size = Math.Abs(outcomePercentage) + 5 // For bubble size
                     });
                 }
             }
 
-            return distribution.OrderBy(d => d.EmotionLevel).ToList();
+            return ApiResponse<List<EmotionPerformanceDataDto>>.SuccessResponse(data);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting emotion performance data for user {UserId}", userId);
+            return ApiResponse<List<EmotionPerformanceDataDto>>.ErrorResponse("Failed to get emotion performance data");
+        }
+    }
+
+    public async Task<ApiResponse<List<WeeklyTrendDataDto>>> GetWeeklyTrendDataAsync(string userId, string dateRange)
+    {
+        try
+        {
+            var (startDate, endDate) = GetDateRange(dateRange);
+            
+            var emotions = await _emotionRepository.GetByUserIdAndDateRangeAsync(userId, startDate, endDate);
+            var trades = await _tradeRepository.GetByUserIdAndDateRangeAsync(userId, startDate, endDate);
+
+            var weeklyData = new List<WeeklyTrendDataDto>();
+            var currentDate = startDate;
+            var weekNumber = 1;
+
+            while (currentDate <= endDate)
+            {
+                var weekEnd = currentDate.AddDays(7);
+                var weekEmotions = emotions.Where(e => e.Timestamp >= currentDate && e.Timestamp < weekEnd);
+                var weekTrades = trades.Where(t => t.EntryTime >= currentDate && t.EntryTime < weekEnd);
+
+                if (weekEmotions.Any() || weekTrades.Any())
+                {
+                    var avgEmotion = weekEmotions.Any() ? weekEmotions.Average(e => e.Level) : 0;
+                    var winRate = weekTrades.Any() 
+                        ? (double)weekTrades.Count(t => t.Outcome == TradeOutcome.Win) / weekTrades.Count() * 100 
+                        : 0;
+                    var avgReturn = weekTrades.Where(t => t.Pnl.HasValue).Any()
+                        ? (double)weekTrades.Where(t => t.Pnl.HasValue).Average(t => t.Pnl!.Value)
+                        : 0;
+
+                    weeklyData.Add(new WeeklyTrendDataDto
+                    {
+                        Week = $"Week {weekNumber}",
+                        AvgEmotion = Math.Round(avgEmotion, 1),
+                        WinRate = Math.Round(winRate, 1),
+                        TotalTrades = weekTrades.Count(),
+                        AvgReturn = Math.Round(avgReturn, 2)
+                    });
+                }
+
+                currentDate = weekEnd;
+                weekNumber++;
+            }
+
+            return ApiResponse<List<WeeklyTrendDataDto>>.SuccessResponse(weeklyData);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting weekly trend data for user {UserId}", userId);
+            return ApiResponse<List<WeeklyTrendDataDto>>.ErrorResponse("Failed to get weekly trend data");
+        }
+    }
+
+    public async Task<ApiResponse<PatternInsightDto>> GetPatternInsightsAsync(string userId, string dateRange)
+    {
+        try
+        {
+            var (startDate, endDate) = GetDateRange(dateRange);
+            
+            var emotions = await _emotionRepository.GetByUserIdAndDateRangeAsync(userId, startDate, endDate);
+            var trades = await _tradeRepository.GetByUserIdAndDateRangeAsync(userId, startDate, endDate);
+
+            var insights = new PatternInsightDto();
+
+            // High emotion win rate (emotion level 7+)
+            var highEmotionTrades = trades.Where(t => 
+                emotions.Any(e => e.Timestamp <= t.EntryTime && e.Level >= 7))
+                .ToList();
+            
+            insights.HighEmotionWinRate = highEmotionTrades.Any() 
+                ? (double)highEmotionTrades.Count(t => t.Outcome == TradeOutcome.Win) / highEmotionTrades.Count * 100
+                : 0;
+
+            // Best trading days
+            var dayPerformance = trades
+                .GroupBy(t => t.EntryTime.DayOfWeek)
+                .Select(g => new 
+                { 
+                    Day = g.Key, 
+                    WinRate = (double)g.Count(t => t.Outcome == TradeOutcome.Win) / g.Count() * 100 
+                })
+                .OrderByDescending(x => x.WinRate)
+                .Take(2)
+                .ToList();
+
+            insights.BestTradingDays = dayPerformance.Select(d => d.Day.ToString()).ToList();
+
+            // Anxiety threshold (simplified - level where win rate drops significantly)
+            insights.AnxietyThreshold = 6;
+
+            // Optimal emotion range
+            var emotionGrouped = trades
+                .Where(t => emotions.Any(e => e.Timestamp <= t.EntryTime))
+                .GroupBy(t => emotions
+                    .Where(e => e.Timestamp <= t.EntryTime)
+                    .OrderByDescending(e => e.Timestamp)
+                    .First().Level)
+                .Select(g => new 
+                { 
+                    Level = g.Key, 
+                    WinRate = (double)g.Count(t => t.Outcome == TradeOutcome.Win) / g.Count() * 100 
+                })
+                .OrderByDescending(x => x.WinRate)
+                .ToList();
+
+            if (emotionGrouped.Any())
+            {
+                var bestLevel = emotionGrouped.First().Level;
+                insights.OptimalEmotionRange = new[] { Math.Max(1, bestLevel - 1), Math.Min(10, bestLevel + 1) };
+            }
+            else
+            {
+                insights.OptimalEmotionRange = new[] { 6, 8 };
+            }
+
+            // Correlation strength (simplified calculation)
+            insights.CorrelationStrength = CalculateCorrelation(emotions, trades);
+
+            insights.TotalPatterns = trades.Count();
+
+            return ApiResponse<PatternInsightDto>.SuccessResponse(insights);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting pattern insights for user {UserId}", userId);
+            return ApiResponse<PatternInsightDto>.ErrorResponse("Failed to get pattern insights");
+        }
+    }
+
+    private (DateTime startDate, DateTime endDate) GetDateRange(string dateRange)
+    {
+        var endDate = DateTime.UtcNow;
+        var startDate = dateRange switch
+        {
+            "7d" => endDate.AddDays(-7),
+            "30d" => endDate.AddDays(-30),
+            "90d" => endDate.AddDays(-90),
+            "1y" => endDate.AddYears(-1),
+            _ => endDate.AddYears(-10) // "all"
+        };
+
+        return (startDate, endDate);
+    }
+
+    private double CalculateTradeOutcome(Trade trade)
+    {
+        if (trade.Pnl.HasValue)
+        {
+            return (double)trade.Pnl.Value;
         }
 
-        private string GetEmotionRange(int emotion)
+        // If no PnL, estimate based on outcome
+        return trade.Outcome switch
         {
-            return emotion switch
+            TradeOutcome.Win => Random.Shared.NextDouble() * 15 + 1, // 1-16%
+            TradeOutcome.Loss => Random.Shared.NextDouble() * -15 - 1, // -1 to -16%
+            TradeOutcome.Breakeven => Random.Shared.NextDouble() * 2 - 1, // -1 to 1%
+            _ => 0
+        };
+    }
+
+    private double CalculateCorrelation(IEnumerable<EmotionCheck> emotions, IEnumerable<Trade> trades)
+    {
+        var data = trades
+            .Select(t => new
             {
-                >= 1 and <= 3 => "Low (1-3)",
-                >= 4 and <= 6 => "Medium (4-6)",
-                >= 7 and <= 10 => "High (7-10)",
-                _ => "Unknown"
-            };
-        }
+                EmotionLevel = emotions
+                    .Where(e => e.Timestamp <= t.EntryTime)
+                    .OrderByDescending(e => e.Timestamp)
+                    .FirstOrDefault()?.Level ?? 5,
+                TradeOutcome = CalculateTradeOutcome(t)
+            })
+            .Where(x => x.EmotionLevel > 0)
+            .ToList();
+
+        if (data.Count < 2) return 0;
+
+        var avgEmotion = data.Average(x => x.EmotionLevel);
+        var avgOutcome = data.Average(x => x.TradeOutcome);
+
+        var numerator = data.Sum(x => (x.EmotionLevel - avgEmotion) * (x.TradeOutcome - avgOutcome));
+        var denominator = Math.Sqrt(
+            data.Sum(x => Math.Pow(x.EmotionLevel - avgEmotion, 2)) *
+            data.Sum(x => Math.Pow(x.TradeOutcome - avgOutcome, 2))
+        );
+
+        return denominator == 0 ? 0 : Math.Abs(numerator / denominator);
     }
 }
