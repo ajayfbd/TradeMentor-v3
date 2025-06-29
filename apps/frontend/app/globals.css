@@ -238,6 +238,41 @@
     }
   }
 
+  /* Bottom Navigation Enhancements */
+  .bottom-nav {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background-color: rgba(255, 255, 255, 0.95);
+  }
+
+  /* iOS Safe Area Support */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Tab transition animations */
+  @keyframes tab-bounce {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+
+  .tab-active {
+    animation: tab-bounce 0.3s ease-in-out;
+  }
+
   /* Reduce motion for accessibility */
   @media (prefers-reduced-motion: reduce) {
     .emotion-scale {
@@ -250,6 +285,10 @@
     
     input[type="range"]::-moz-range-thumb {
       transition: none;
+    }
+
+    .tab-active {
+      animation: none;
     }
   }
 }
