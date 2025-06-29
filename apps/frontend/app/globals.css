@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: 67 56 202;
+    --primary-foreground: 255 255 255;
+    --foreground: 15 23 42;
+    --emotion-low: 220 38 38;
+    --emotion-mid: 245 158 11;
+    --emotion-high: 5 150 105;
+    --success: 5 150 105;
+    --warning: 220 104 3;
+    --error: 220 38 38;
+    --muted: 100 116 139;
+    --muted-foreground: 71 85 105;
+    --background: 248 250 252;
+    --card: 255 255 255;
+    --border: 226 232 240;
+  }
+
+  * {
+    @apply border-gray-200;
+  }
+
+  body {
+    @apply bg-background text-slate-900;
+    color: rgb(var(--foreground));
+    background-color: rgb(var(--background));
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Mobile-first touch optimizations */
+  button, [role="button"] {
+    @apply min-h-[44px] min-w-[44px];
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Emotion slider custom styles */
+  .emotion-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+    @apply w-full h-8;
+  }
+
+  .emotion-slider::-webkit-slider-track {
+    background: linear-gradient(to right, 
+      rgb(var(--emotion-low)) 0%,
+      rgb(var(--emotion-mid)) 50%,
+      rgb(var(--emotion-high)) 100%
+    );
+    @apply h-2 rounded-full;
+  }
+
+  .emotion-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    @apply w-8 h-8 rounded-full bg-white border-2 border-primary shadow-lg;
+    cursor: pointer;
+  }
+
+  .emotion-slider::-moz-range-track {
+    background: linear-gradient(to right, 
+      rgb(var(--emotion-low)) 0%,
+      rgb(var(--emotion-mid)) 50%,
+      rgb(var(--emotion-high)) 100%
+    );
+    @apply h-2 rounded-full border-0;
+  }
+
+  .emotion-slider::-moz-range-thumb {
+    @apply w-8 h-8 rounded-full bg-white border-2 border-primary shadow-lg;
+    cursor: pointer;
+  }
+
+  /* PWA safe areas */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
