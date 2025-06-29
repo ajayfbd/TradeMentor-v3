@@ -7,9 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "type-check": "tsc --noEmit",
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@tradementor/ui": "workspace:*",
+    "@tradementor/config": "workspace:*",
+    "@tradementor/utils": "workspace:*",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-slider": "^1.1.2",
     "@radix-ui/react-slot": "^1.2.3",
