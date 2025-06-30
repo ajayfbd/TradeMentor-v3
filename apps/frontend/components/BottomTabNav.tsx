@@ -89,16 +89,20 @@ function TabItem({ tab, isActive, onClick }: TabItemProps) {
       className={cn(
         'flex flex-col items-center justify-center space-y-1 transition-all duration-200 ease-in-out',
         'touch-target-lg rounded-lg relative overflow-hidden px-2 py-1',
+        'min-w-[60px] min-h-[48px]', // Increased touch target for accessibility
         'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50',
-        'active:scale-95 hover:bg-gray-50'
+        'active:scale-95 hover:bg-gray-50/70', // Enhanced hover state
+        'safe-area-padding' // Ensure proper padding on devices with notches
       )}
       aria-label={tab.label}
+      role="tab"
+      aria-selected={isActive}
     >
       {/* Active indicator background */}
       <div
         className={cn(
-          'absolute inset-0 bg-current opacity-0 transition-opacity duration-200',
-          isActive && 'opacity-5'
+          'absolute inset-0 bg-current opacity-0 transition-all duration-300 ease-out',
+          isActive && 'opacity-8 scale-105' // Enhanced active state
         )}
         style={{ color: isActive ? tab.activeColor : 'transparent' }}
       />
@@ -108,9 +112,9 @@ function TabItem({ tab, isActive, onClick }: TabItemProps) {
         <Icon
           size={24}
           className={cn(
-            'transition-all duration-200 ease-in-out',
+            'transition-all duration-300 ease-out',
             isActive ? tab.activeColor : tab.color,
-            isActive && 'scale-110'
+            isActive && 'scale-110 drop-shadow-sm' // Added subtle drop shadow for active state
           )}
           strokeWidth={isActive ? 2.5 : 2}
           fill={isActive ? 'currentColor' : 'none'}
@@ -172,13 +176,13 @@ export function BottomTabNav({ className }: BottomTabNavProps = {}) {
       className={cn(
         'fixed bottom-0 left-0 right-0 z-50',
         'bottom-nav border-t border-gray-200 shadow-lg',
-        'safe-bottom', // iOS safe area padding
+        'safe-bottom backdrop-blur-md bg-white/95', // Enhanced backdrop blur
         className
       )}
       role="tablist"
       aria-label="Main navigation"
     >
-      <div className="flex items-center justify-around px-1 py-2 min-h-[56px]">
+      <div className="flex items-center justify-around px-1 py-2 min-h-[56px] max-w-screen-xl mx-auto">
         {tabs.map((tab) => (
           <TabItem
             key={tab.key}

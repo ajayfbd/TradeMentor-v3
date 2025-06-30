@@ -6,12 +6,17 @@ import { useEmotionStore, type EmotionContext } from '@/lib/emotion-store';
 import { useToast } from '@/hooks/use-toast';
 import { EmotionSlider } from '@/components/EmotionSlider';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { BreathingGuide } from '@/components/ui/breathing-guide';
+import { OptimizedBreathingGuide } from '@/components/optimized/LazyComponents';
+import { LoadingButton } from '@/components/ui/loading-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { ValidatedInput, ValidatedTextarea } from '@/components/form/ValidatedInput';
+import { OfflineStatusCard, OfflineIndicator } from '@/components/offline/OfflineIndicators';
+import { getContextualToast } from '@/components/ui/enhanced-toast';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { usePerformanceMonitor } from '@/hooks/use-performance-monitor';
 import {
   Flame,
   TrendingUp,
@@ -63,11 +68,6 @@ interface CelebrationModalProps {
 }
 
 function CelebrationModal({ streakCount, onClose }: CelebrationModalProps) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
   const getMessage = () => {
     if (streakCount === 7) return "Amazing! 7 days in a row! 🔥";
     if (streakCount === 30) return "Incredible! 30 day streak! 🏆";
@@ -75,17 +75,68 @@ function CelebrationModal({ streakCount, onClose }: CelebrationModalProps) {
     return `${streakCount} day streak! Keep going! ✨`;
   };
 
+  const getDetailMessage = () => {
+    if (streakCount >= 100) return 'You\'ve achieved the ultimate trading discipline milestone. Your emotional awareness is extraordinary!';
+    if (streakCount >= 30) return 'One month of consistent emotion tracking! You\'re building the habits of successful traders.';
+    if (streakCount >= 7) return 'One week of daily emotion checks! Consistency is the foundation of trading excellence.';
+    return 'Great start! Keep building this powerful habit for better trading results.';
+  };
+
+  // Enhanced auto-close after 4 seconds
+  useEffect(() => {
+    const timer = setTimeout(onClose, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-sm mx-auto animate-bounce">
-        <CardContent className="text-center py-8">
-          <div className="text-6xl mb-4">
-            {streakCount >= 100 ? '🚀' : streakCount >= 30 ? '🏆' : '🔥'}
+      <Card className="w-full max-w-md mx-auto">
+        <CardContent className="text-center py-8 relative overflow-hidden">
+          {/* Background celebration effect */}
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-50 to-orange-50 opacity-80" />
+          
+          {/* Floating particles effect */}
+          <div className="absolute inset-0">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className={`absolute w-2 h-2 bg-yellow-400 rounded-full animate-bounce`}
+                style={{
+                  left: `${20 + i * 15}%`,
+                  top: `${20 + (i % 2) * 30}%`,
+                  animationDelay: `${i * 0.2}s`,
+                  animationDuration: '1.5s'
+                }}
+              />
+            ))}
           </div>
-          <h3 className="text-xl font-bold mb-2">{getMessage()}</h3>
-          <p className="text-muted-foreground">
-            Consistency builds discipline in trading
-          </p>
+          
+          <div className="relative z-10">
+            <div className="text-7xl mb-4 animate-pulse">
+              {streakCount >= 100 ? '🚀' : streakCount >= 30 ? '🏆' : '🔥'}
+            </div>
+            <h3 className="text-2xl font-bold mb-3">
+              {getMessage()}
+            </h3>
+            <p className="text-gray-700 mb-4 leading-relaxed">
+              {getDetailMessage()}
+            </p>
+            <div className="flex items-center justify-center space-x-2 text-lg font-semibold text-orange-600">
+              <Flame className="h-5 w-5" />
+              <span>{streakCount} Days Strong</span>
+              <Flame className="h-5 w-5" />
+            </div>
+          </div>
+          
+          {/* Close button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="absolute top-2 right-2 h-8 w-8 p-0"
+          >
+            ✕
+          </Button>
         </CardContent>
       </Card>
     </div>
@@ -151,6 +202,14 @@ function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
 }
 
 export default function EmotionCheckPage() {
+  // Performance monitoring for critical user flow
+  const { connectionInfo } = usePerformanceMonitor({
+    enableMetrics: true,
+    enableErrorTracking: true,
+    slowLoadThreshold: 2000, // 2s threshold for emotion check
+    reportToConsole: process.env.NODE_ENV === 'development'
+  });
+
   const {
     currentLevel,
     selectedContext,
@@ -171,12 +230,94 @@ export default function EmotionCheckPage() {
     setCelebration,
     reset,
     canSubmit,
+    submitEmotionCheck,
+    syncPendingEntries,
   } = useEmotionStore();
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const sliderRef = useRef<HTMLDivElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const validateSymbolField = useCallback((symbolValue: string): string => {
+    if (symbolValue && symbolValue.length > 10) return 'Symbol too long (max 10 characters)';
+    if (symbolValue && !/^[A-Z0-9]*$/.test(symbolValue)) return 'Symbol can only contain letters and numbers';
+    return '';
+  }, []);
+
+  const validateNotesField = useCallback((notesValue: string): string => {
+    if (notesValue && notesValue.length > 500) return 'Notes too long (max 500 characters)';
+    return '';
+  }, []);
+
+  const handleSymbolChange = (value: string) => {
+    const upperValue = value.toUpperCase();
+    setSymbol(upperValue);
+    
+    // Clear error when user starts typing
+    if (fieldErrors.symbol) {
+      setFieldErrors(prev => ({ ...prev, symbol: '' }));
+    }
+  };
+
+  const handleNotesChange = (value: string) => {
+    setNotes(value);
+    
+    // Clear error when user starts typing  
+    if (fieldErrors.notes) {
+      setFieldErrors(prev => ({ ...prev, notes: '' }));
+    }
+  };
+
+  // Handle emotion submission
+  const handleSubmit = useCallback(async () => {
+    if (!selectedContext) {
+      toast({
+        title: 'Please select a context',
+        description: 'Choose when this emotion check occurred',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate fields
+    const errors = {
+      symbol: validateSymbolField(symbol),
+      notes: validateNotesField(notes),
+    };
+
+    setFieldErrors(errors);
+
+    // Check if there are any errors
+    const hasErrors = Object.values(errors).some(error => error !== '');
+    if (hasErrors) {
+      toast({
+        title: 'Please fix the errors',
+        description: 'Check the form for validation errors.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await submitEmotionCheck();
+      const toastContent = getContextualToast('emotion-check', 'success', `Level ${currentLevel} recorded for ${selectedContext}`);
+      toast({
+        title: toastContent.title,
+        description: toastContent.description,
+        variant: 'default',
+      });
+    } catch (error) {
+      console.error('Failed to submit emotion check:', error);
+      const toastContent = getContextualToast('emotion-check', 'error');
+      toast({
+        title: toastContent.title,
+        description: toastContent.description,
+        variant: 'default', // Use default instead of destructive for offline saves
+      });
+    }
+  }, [selectedContext, currentLevel, symbol, notes, submitEmotionCheck, toast, validateSymbolField, validateNotesField]);
 
   // Auto-focus on emotion slider when page loads
   useEffect(() => {
@@ -240,72 +381,12 @@ export default function EmotionCheckPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setLevel, canSubmit, reset, handleSubmit]);
 
-  // Mutation for saving emotion entries
-  const saveEmotionMutation = useMutation({
-    mutationFn: async (data: {
-      level: number;
-      context: EmotionContext;
-      symbol?: string;
-      notes?: string;
-    }) => {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (!isOnline) {
-        throw new Error('Network unavailable');
-      }
-      
-      // In real app, this would be an API call
-      return { success: true, id: `entry-${Date.now()}` };
-    },
-    onMutate: () => setSubmitting(true),
-    onSuccess: () => {
-      incrementStreak();
-      queryClient.invalidateQueries({ queryKey: ['emotions'] });
-      toast({
-        title: 'Emotion logged successfully! 🎉',
-        description: `Level ${currentLevel} recorded for ${selectedContext}`,
-      });
-      reset();
-    },
-    onError: (error: Error) => {
-      // Add to offline queue
-      addPendingEntry({
-        level: currentLevel,
-        context: selectedContext!,
-        symbol: symbol || undefined,
-        notes: notes || undefined,
-      });
-      
-      toast({
-        title: 'Saved offline',
-        description: 'Your emotion check will sync when online',
-        variant: 'default',
-      });
-      
-      incrementStreak(); // Still count toward streak
-      reset();
-    },
-    onSettled: () => setSubmitting(false),
-  });
-
-  const handleSubmit = useCallback(() => {
-    if (!selectedContext) {
-      toast({
-        title: 'Please select a context',
-        description: 'Choose when this emotion check occurred',
-        variant: 'destructive',
-      });
-      return;
+  // Auto-sync pending entries when coming online
+  useEffect(() => {
+    if (isOnline) {
+      syncPendingEntries().catch(console.error);
     }
-
-    saveEmotionMutation.mutate({
-      level: currentLevel,
-      context: selectedContext,
-      symbol: symbol || undefined,
-      notes: notes || undefined,
-    });
-  }, [selectedContext, currentLevel, symbol, notes, toast, saveEmotionMutation]);
+  }, [isOnline, syncPendingEntries]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -319,17 +400,33 @@ export default function EmotionCheckPage() {
   };
 
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 pb-24">
-        {/* Celebration Modal */}
-        {showCelebration && (
-          <CelebrationModal
-            streakCount={streakCount}
-            onClose={() => setCelebration(false)}
-          />
-        )}
+    <ErrorBoundary onRetry={() => window.location.reload()}>
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 pb-24">
+          {/* Celebration Modal */}
+          {showCelebration && (
+            <CelebrationModal
+              streakCount={streakCount}
+              onClose={() => setCelebration(false)}
+            />
+          )}
 
-        <div className="max-w-2xl mx-auto space-y-6">
+          <div className="max-w-2xl mx-auto space-y-6">
+            {/* Breathing Exercise Card - Show when high stress levels */}
+            {(currentLevel >= 8 || currentLevel <= 3) && (
+              <OptimizedBreathingGuide
+                className="border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50"
+                onComplete={() => {
+                  toast({
+                    title: "Breathing Exercise Complete",
+                    description: "Take a moment to reassess how you're feeling now.",
+                    duration: 5000,
+                  });
+                }}
+                duration={60}
+              />
+            )}
+
           {/* Header with Streak Counter */}
           <Card className="relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-purple-500/10" />
@@ -344,11 +441,7 @@ export default function EmotionCheckPage() {
                 
                 {/* Online/Offline Indicator */}
                 <div className="flex items-center space-x-2">
-                  {isOnline ? (
-                    <Wifi className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <WifiOff className="h-5 w-5 text-amber-500" />
-                  )}
+                  <OfflineIndicator />
                 </div>
               </div>
               
@@ -364,6 +457,9 @@ export default function EmotionCheckPage() {
               )}
             </CardHeader>
           </Card>
+
+          {/* Offline Status Card */}
+          <OfflineStatusCard />
 
           {/* Emotion Slider - Primary CTA */}
           <Card className="relative">
@@ -456,14 +552,16 @@ export default function EmotionCheckPage() {
               
               {/* Custom Symbol Input */}
               <div className="space-y-2">
-                <Label htmlFor="symbol">Custom Symbol</Label>
-                <Input
+                <ValidatedInput
                   id="symbol"
+                  label="Custom Symbol"
                   placeholder="Enter symbol (e.g., MSFT)"
                   value={symbol}
-                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                  onChange={(e) => handleSymbolChange(e.target.value)}
+                  error={fieldErrors.symbol}
                   disabled={isSubmitting}
-                  className="touch-target"
+                  className="touch-target uppercase"
+                  maxLength={10}
                 />
               </div>
             </CardContent>
@@ -478,23 +576,29 @@ export default function EmotionCheckPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Textarea
+              <ValidatedTextarea
                 placeholder="What's influencing your emotions right now?"
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e) => handleNotesChange(e.target.value)}
+                error={fieldErrors.notes}
                 disabled={isSubmitting}
                 rows={3}
                 className="touch-target resize-none"
+                maxLength={500}
+                showCharCount={true}
               />
             </CardContent>
           </Card>
 
           {/* Submit Button - Prominent */}
           <div className="sticky bottom-20 md:relative md:bottom-0">
-            <Button
+            <LoadingButton
               onClick={handleSubmit}
               disabled={!canSubmit()}
+              loading={isSubmitting}
+              loadingText="Saving..."
               size="lg"
+              icon={<Check className="h-5 w-5" />}
               className={cn(
                 'w-full h-14 text-lg font-semibold shadow-lg',
                 'touch-target-xl transition-all duration-200',
@@ -503,18 +607,8 @@ export default function EmotionCheckPage() {
                   : 'bg-gray-300'
               )}
             >
-              {isSubmitting ? (
-                <>
-                  <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Check className="h-5 w-5 mr-2" />
-                  Log Emotion Check
-                </>
-              )}
-            </Button>
+              Log Emotion Check
+            </LoadingButton>
             
             {/* Keyboard Shortcut Hint */}
             <p className="text-center text-xs text-muted-foreground mt-2">
@@ -544,5 +638,6 @@ export default function EmotionCheckPage() {
         </div>
       </div>
     </PullToRefresh>
+    </ErrorBoundary>
   );
 }

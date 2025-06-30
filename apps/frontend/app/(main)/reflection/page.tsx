@@ -1,12 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { apiClient } from '@/lib/api-client';
+import { WeeklyReflection, MonthlyGoal, WeeklyReflectionRequest, MonthlyGoalRequest } from '@/lib/types';
+import { WeeklyPromptCard } from '@/components/weekly-prompt/WeeklyPrompt';
 import { 
   BookOpen, 
   Brain, 
@@ -17,66 +21,9 @@ import {
   Plus,
   Edit3,
   Save,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
-
-// Mock reflection data
-const reflectionData = {
-  weeklyReflections: [
-    {
-      id: '1',
-      week: 'Week of Dec 18, 2024',
-      date: new Date('2024-12-22'),
-      wins: 'Stayed calm during volatile market conditions. Followed my trading plan consistently.',
-      losses: 'Got overconfident after 3 wins in a row, leading to a large loss on AAPL.',
-      lessons: 'Need to maintain discipline regardless of recent performance. Success can be as dangerous as failure.',
-      emotionalInsights: 'Noticed I trade better with emotion levels 6-7. Above 8 leads to overconfidence.',
-      nextWeekGoals: 'Focus on position sizing. No trades above 2% risk per position.',
-      emotionLevel: 7.2,
-      winRate: 0.68,
-      totalPnL: 450,
-    },
-    {
-      id: '2',
-      week: 'Week of Dec 11, 2024',
-      date: new Date('2024-12-15'),
-      wins: 'Excellent risk management. Cut losses quickly on losing trades.',
-      losses: 'Missed some good opportunities due to analysis paralysis.',
-      lessons: 'Sometimes the perfect setup doesn\'t exist. Good enough is better than nothing.',
-      emotionalInsights: 'Low emotion levels (4-5) made me too cautious. Need to find balance.',
-      nextWeekGoals: 'Take more calculated risks. Trust my analysis more.',
-      emotionLevel: 5.8,
-      winRate: 0.55,
-      totalPnL: 280,
-    }
-  ],
-  monthlyGoals: [
-    { id: '1', goal: 'Maintain emotion level between 6-7 during trading', progress: 75, completed: false },
-    { id: '2', goal: 'Achieve 65% win rate for the month', progress: 68, completed: true },
-    { id: '3', goal: 'Complete weekly reflections consistently', progress: 90, completed: false },
-    { id: '4', goal: 'Reduce maximum position size to 2%', progress: 85, completed: false },
-  ],
-  insights: [
-    {
-      category: 'Emotional Pattern',
-      insight: 'Your best performance occurs when emotion levels are between 6-7',
-      confidence: 92,
-      actionable: 'Consider meditation or breathing exercises before trading sessions'
-    },
-    {
-      category: 'Risk Management', 
-      insight: 'Weeks with consistent position sizing show 23% better returns',
-      confidence: 87,
-      actionable: 'Set position size rules and stick to them regardless of confidence level'
-    },
-    {
-      category: 'Learning Curve',
-      insight: 'Reflection quality correlates with improved performance next week',
-      confidence: 79,
-      actionable: 'Spend more time on detailed weekly reflections'
-    }
-  ]
-};
 
 export default function ReflectionPage() {
   const [isEditing, setIsEditing] = useState(false);
@@ -87,19 +34,124 @@ export default function ReflectionPage() {
     emotionalInsights: '',
     nextWeekGoals: ''
   });
+  const [newGoal, setNewGoal] = useState('');
+
+  const queryClient = useQueryClient();
+
+  // Fetch weekly reflections
+  const { data: weeklyReflections, isLoading: reflectionsLoading, error: reflectionsError } = useQuery({
+    queryKey: ['weeklyReflections'],
+    queryFn: () => apiClient.getWeeklyReflections(),
+  });
+
+  // Fetch monthly goals
+  const { data: monthlyGoals, isLoading: goalsLoading, error: goalsError } = useQuery({
+    queryKey: ['monthlyGoals'],
+    queryFn: () => apiClient.getMonthlyGoals(),
+  });
+
+  // Create weekly reflection mutation
+  const createReflectionMutation = useMutation({
+    mutationFn: (data: WeeklyReflectionRequest) => apiClient.createWeeklyReflection(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['weeklyReflections'] });
+      setIsEditing(false);
+      setNewReflection({
+        wins: '',
+        losses: '',
+        lessons: '',
+        emotionalInsights: '',
+        nextWeekGoals: ''
+      });
+    },
+  });
+
+  // Create monthly goal mutation
+  const createGoalMutation = useMutation({
+    mutationFn: (data: MonthlyGoalRequest) => apiClient.createMonthlyGoal(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthlyGoals'] });
+      setNewGoal('');
+    },
+  });
+
+  // Update monthly goal mutation
+  const updateGoalMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<MonthlyGoalRequest> }) => 
+      apiClient.updateMonthlyGoal(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthlyGoals'] });
+    },
+  });
 
   const handleSaveReflection = () => {
-    // TODO: Implement API call to save reflection
-    console.log('Saving reflection:', newReflection);
-    setIsEditing(false);
-    setNewReflection({
-      wins: '',
-      losses: '',
-      lessons: '',
-      emotionalInsights: '',
-      nextWeekGoals: ''
+    if (!newReflection.wins || !newReflection.losses || !newReflection.lessons) {
+      return; // Basic validation
+    }
+
+    // Calculate the start of the current week (Monday)
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Sunday
+    const weekStart = new Date(now.setDate(diff));
+    
+    createReflectionMutation.mutate({
+      wins: newReflection.wins,
+      losses: newReflection.losses,
+      lessons: newReflection.lessons,
+      emotionalInsights: newReflection.emotionalInsights,
+      nextWeekGoals: newReflection.nextWeekGoals,
+      weekStartDate: weekStart.toISOString().split('T')[0],
     });
   };
+
+  const handleCreateGoal = () => {
+    if (!newGoal.trim()) return;
+
+    const now = new Date();
+    const targetMonth = now.toISOString().substring(0, 7); // YYYY-MM format
+
+    createGoalMutation.mutate({
+      goal: newGoal,
+      targetMonth,
+      progress: 0,
+      isCompleted: false,
+    });
+  };
+
+  const handleToggleGoal = (goal: MonthlyGoal) => {
+    updateGoalMutation.mutate({
+      id: goal.id,
+      data: {
+        goal: goal.goal,
+        targetMonth: goal.targetMonth,
+        isCompleted: !goal.isCompleted,
+        progress: goal.isCompleted ? 0 : 100,
+      },
+    });
+  };
+
+  // Loading states
+  if (reflectionsLoading || goalsLoading) {
+    return (
+      <div className="container mx-auto p-4 space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  // Error states
+  if (reflectionsError || goalsError) {
+    return (
+      <div className="container mx-auto p-4 space-y-6">
+        <div className="text-center text-destructive">
+          <p>Error loading reflection data. Please try again.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -113,9 +165,9 @@ export default function ReflectionPage() {
       <Tabs defaultValue="weekly" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="weekly">Weekly</TabsTrigger>
+          <TabsTrigger value="prompt">Sunday Prompt</TabsTrigger>
           <TabsTrigger value="goals">Goals</TabsTrigger>
           <TabsTrigger value="insights">Insights</TabsTrigger>
-          <TabsTrigger value="new">New Entry</TabsTrigger>
         </TabsList>
 
         <TabsContent value="weekly" className="space-y-4">
@@ -128,114 +180,166 @@ export default function ReflectionPage() {
           </div>
 
           <div className="space-y-4">
-            {reflectionData.weeklyReflections.map((reflection) => (
-              <Card key={reflection.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="text-lg">{reflection.week}</CardTitle>
-                      <CardDescription className="flex items-center gap-4">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {reflection.date.toLocaleDateString()}
-                        </span>
-                        <Badge variant="outline">
-                          Emotion: {reflection.emotionLevel}/10
-                        </Badge>
-                        <Badge variant={reflection.winRate >= 0.6 ? "default" : "secondary"}>
-                          Win Rate: {(reflection.winRate * 100).toFixed(1)}%
-                        </Badge>
-                        <Badge variant={reflection.totalPnL >= 0 ? "default" : "destructive"}>
-                          P&L: ${reflection.totalPnL}
-                        </Badge>
-                      </CardDescription>
+            {weeklyReflections && weeklyReflections.length > 0 ? (
+              weeklyReflections.map((reflection: WeeklyReflection) => (
+                <Card key={reflection.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <CardTitle className="text-lg">
+                          Week of {new Date(reflection.weekStartDate).toLocaleDateString()}
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-4">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            {new Date(reflection.createdAt).toLocaleDateString()}
+                          </span>
+                        </CardDescription>
+                      </div>
+                      <Button variant="ghost" size="sm">
+                        <Edit3 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button variant="ghost" size="sm">
-                      <Edit3 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-success">✅ What Went Well</Label>
+                        <p className="text-sm text-muted-foreground bg-green-50 p-3 rounded-md">
+                          {reflection.wins}
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-destructive">❌ What Didn&apos;t Work</Label>
+                        <p className="text-sm text-muted-foreground bg-red-50 p-3 rounded-md">
+                          {reflection.losses}
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-success">✅ What Went Well</Label>
-                      <p className="text-sm text-muted-foreground bg-green-50 p-3 rounded-md">
-                        {reflection.wins}
+                      <Label className="text-sm font-medium text-primary">🧠 Key Lessons</Label>
+                      <p className="text-sm text-muted-foreground bg-blue-50 p-3 rounded-md">
+                        {reflection.lessons}
                       </p>
                     </div>
-                    
+
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-destructive">❌ What Didn&apos;t Work</Label>
-                      <p className="text-sm text-muted-foreground bg-red-50 p-3 rounded-md">
-                        {reflection.losses}
+                      <Label className="text-sm font-medium text-warning">💭 Emotional Insights</Label>
+                      <p className="text-sm text-muted-foreground bg-amber-50 p-3 rounded-md">
+                        {reflection.emotionalInsights}
                       </p>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-primary">🧠 Key Lessons</Label>
-                    <p className="text-sm text-muted-foreground bg-blue-50 p-3 rounded-md">
-                      {reflection.lessons}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-warning">💭 Emotional Insights</Label>
-                    <p className="text-sm text-muted-foreground bg-amber-50 p-3 rounded-md">
-                      {reflection.emotionalInsights}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-purple-600">🎯 Next Week Goals</Label>
-                    <p className="text-sm text-muted-foreground bg-purple-50 p-3 rounded-md">
-                      {reflection.nextWeekGoals}
-                    </p>
-                  </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-purple-600">🎯 Next Week Goals</Label>
+                      <p className="text-sm text-muted-foreground bg-purple-50 p-3 rounded-md">
+                        {reflection.nextWeekGoals}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No reflections yet</h3>
+                  <p className="text-muted-foreground text-center mb-4">
+                    Start your reflection journey by creating your first weekly reflection.
+                  </p>
+                  <Button onClick={() => setIsEditing(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create First Reflection
+                  </Button>
                 </CardContent>
               </Card>
-            ))}
+            )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="prompt" className="space-y-4">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold">Sunday Reflection Prompts</h2>
+            <p className="text-muted-foreground">
+              Every Sunday, receive a thoughtful question to help you reflect on your trading journey and build better habits.
+            </p>
+          </div>
+          <WeeklyPromptCard />
         </TabsContent>
 
         <TabsContent value="goals" className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Monthly Goals</h2>
-            <Button size="sm" variant="outline">
-              <Target className="h-4 w-4 mr-2" />
-              Set New Goal
-            </Button>
+            <div className="flex gap-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter new goal..."
+                  value={newGoal}
+                  onChange={(e) => setNewGoal(e.target.value)}
+                  className="px-3 py-1 text-sm border rounded-md"
+                  onKeyPress={(e) => e.key === 'Enter' && handleCreateGoal()}
+                />
+                <Button size="sm" onClick={handleCreateGoal} disabled={!newGoal.trim()}>
+                  <Target className="h-4 w-4 mr-2" />
+                  Add Goal
+                </Button>
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            {reflectionData.monthlyGoals.map((goal) => (
-              <Card key={goal.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-base">{goal.goal}</CardTitle>
-                    <Badge variant={goal.completed ? "default" : "secondary"}>
-                      {goal.completed ? "Complete" : "In Progress"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Progress</span>
-                      <span>{goal.progress}%</span>
+            {monthlyGoals && monthlyGoals.length > 0 ? (
+              monthlyGoals.map((goal: MonthlyGoal) => (
+                <Card key={goal.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <CardTitle className="text-base">{goal.goal}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={goal.isCompleted ? "default" : "secondary"}>
+                          {goal.isCompleted ? "Complete" : "In Progress"}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleGoal(goal)}
+                        >
+                          {goal.isCompleted ? <X className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all ${
-                          goal.completed ? 'bg-success' : goal.progress >= 80 ? 'bg-warning' : 'bg-primary'
-                        }`}
-                        style={{ width: `${goal.progress}%` }}
-                      />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Progress</span>
+                        <span>{goal.progress || 0}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all ${
+                            goal.isCompleted ? 'bg-green-500' : (goal.progress || 0) >= 80 ? 'bg-yellow-500' : 'bg-blue-500'
+                          }`}
+                          style={{ width: `${goal.progress || 0}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card className="md:col-span-2">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Target className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No goals set</h3>
+                  <p className="text-muted-foreground text-center mb-4">
+                    Set your first monthly goal to track your progress.
+                  </p>
                 </CardContent>
               </Card>
-            ))}
+            )}
           </div>
         </TabsContent>
 
@@ -244,33 +348,19 @@ export default function ReflectionPage() {
             <h2 className="text-xl font-semibold">AI-Generated Insights</h2>
             <Badge variant="outline" className="flex items-center gap-1">
               <Brain className="h-3 w-3" />
-              Updated Weekly
+              Coming Soon
             </Badge>
           </div>
 
-          <div className="space-y-4">
-            {reflectionData.insights.map((insight, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <Badge variant="outline">{insight.category}</Badge>
-                      <CardTitle className="text-lg">{insight.insight}</CardTitle>
-                    </div>
-                    <Badge variant="secondary">
-                      {insight.confidence}% confidence
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h4 className="font-semibold text-blue-900 mb-1">💡 Actionable Advice</h4>
-                    <p className="text-sm text-blue-700">{insight.actionable}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Brain className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">AI Insights Coming Soon</h3>
+              <p className="text-muted-foreground text-center">
+                Once you have enough reflection data, we&apos;ll generate personalized insights about your trading patterns.
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="new" className="space-y-4">
@@ -341,9 +431,17 @@ export default function ReflectionPage() {
               </div>
 
               <div className="flex gap-2 pt-4">
-                <Button onClick={handleSaveReflection} className="flex items-center gap-2">
-                  <Save className="h-4 w-4" />
-                  Save Reflection
+                <Button 
+                  onClick={handleSaveReflection} 
+                  className="flex items-center gap-2"
+                  disabled={createReflectionMutation.isPending || !newReflection.wins || !newReflection.losses || !newReflection.lessons}
+                >
+                  {createReflectionMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {createReflectionMutation.isPending ? 'Saving...' : 'Save Reflection'}
                 </Button>
                 <Button variant="outline" onClick={() => setNewReflection({
                   wins: '',

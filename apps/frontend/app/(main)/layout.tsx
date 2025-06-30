@@ -1,6 +1,7 @@
 'use client';
 
 import { BottomTabNav, useShowBottomNav } from '@/components/BottomTabNav';
+import { WeeklyPromptModal } from '@/components/weekly-prompt/WeeklyPrompt';
 
 export default function MainLayout({
   children,
@@ -15,6 +16,7 @@ export default function MainLayout({
         {children}
       </main>
       {showBottomNav && <BottomTabNav />}
+      <WeeklyPromptModal />
     </div>
   );
 }

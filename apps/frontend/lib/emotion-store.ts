@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { EmotionState } from './types';
+import { EmotionState, EmotionCheck, EmotionCheckRequest } from './types';
+import { apiClient } from './api-client';
 
 export type EmotionContext = 'pre-trade' | 'post-trade' | 'market-event';
 
@@ -39,6 +40,7 @@ interface EmotionStore extends EnhancedEmotionState {
   // Entry management
   addPendingEntry: (entry: Omit<EmotionEntry, 'id' | 'timestamp' | 'synced'>) => void;
   markEntrySynced: (id: string) => void;
+  removePendingEntry: (id: string) => void;
   getPendingEntries: () => EmotionEntry[];
   
   // Streak management
@@ -51,6 +53,10 @@ interface EmotionStore extends EnhancedEmotionState {
   // Form management
   reset: () => void;
   canSubmit: () => boolean;
+  
+  // API sync methods
+  submitEmotionCheck: () => Promise<void>;
+  syncPendingEntries: () => Promise<void>;
 }
 
 const initialState: EnhancedEmotionState = {
@@ -100,6 +106,12 @@ export const useEmotionStore = create<EmotionStore>()(
       },
       
       markEntrySynced: (id) => {
+        set((state) => ({
+          pendingEntries: state.pendingEntries.filter(entry => entry.id !== id),
+        }));
+      },
+      
+      removePendingEntry: (id) => {
         set((state) => ({
           pendingEntries: state.pendingEntries.filter(entry => entry.id !== id),
         }));
@@ -160,6 +172,89 @@ export const useEmotionStore = create<EmotionStore>()(
       canSubmit: () => {
         const state = get();
         return !state.isSubmitting && state.selectedContext !== null;
+      },
+      
+      // API sync methods
+      submitEmotionCheck: async () => {
+        const state = get();
+        
+        if (!state.selectedContext) {
+          throw new Error('Context is required');
+        }
+        
+        set({ isSubmitting: true });
+        
+        try {
+          const emotionData: EmotionCheckRequest = {
+            level: state.currentLevel,
+            context: state.selectedContext,
+            notes: state.notes || undefined,
+            symbol: state.symbol || undefined,
+          };
+          
+          if (state.isOnline) {
+            // Submit directly to API
+            await apiClient.createEmotionCheck(emotionData);
+            
+            // Update streak and stats
+            get().incrementStreak();
+            get().updateLastCheckDate();
+            
+            // Reset form
+            get().reset();
+          } else {
+            // Add to pending queue for later sync
+            get().addPendingEntry(emotionData);
+            
+            // Still update streak and stats locally
+            get().incrementStreak();
+            get().updateLastCheckDate();
+            
+            // Reset form
+            get().reset();
+          }
+        } catch (error) {
+          // If online but API fails, add to pending queue
+          if (state.isOnline) {
+            get().addPendingEntry({
+              level: state.currentLevel,
+              context: state.selectedContext,
+              notes: state.notes || undefined,
+              symbol: state.symbol || undefined,
+            });
+          }
+          throw error;
+        } finally {
+          set({ isSubmitting: false });
+        }
+      },
+      
+      syncPendingEntries: async () => {
+        const state = get();
+        
+        if (!state.isOnline || state.pendingEntries.length === 0) {
+          return;
+        }
+        
+        const entries = [...state.pendingEntries];
+        
+        try {
+          // Submit all pending entries
+          for (const entry of entries) {
+            await apiClient.createEmotionCheck({
+              level: entry.level,
+              context: entry.context,
+              notes: entry.notes,
+              symbol: entry.symbol,
+            });
+            
+            // Mark as synced
+            get().markEntrySynced(entry.id);
+          }
+        } catch (error) {
+          console.error('Failed to sync pending entries:', error);
+          // Keep entries in queue for next attempt
+        }
       },
     }),
     {

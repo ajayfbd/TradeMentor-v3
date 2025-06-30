@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import { QueryProvider } from '@/lib/query-provider';
 import { Toaster } from '@/components/ui/toaster';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import { ProductionProviders } from '@/components/production/ProductionProviders';
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -47,11 +48,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-sans antialiased bg-background text-foreground">
-        <QueryProvider>
-          <ServiceWorkerRegistration />
-          {children}
-          <Toaster />
-        </QueryProvider>
+        <ProductionProviders>
+          <QueryProvider>
+            <ServiceWorkerRegistration />
+            {children}
+            <Toaster />
+          </QueryProvider>
+        </ProductionProviders>
       </body>
     </html>
   );

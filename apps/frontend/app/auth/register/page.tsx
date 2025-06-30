@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/lib/auth-store';
 import { apiClient } from '@/lib/api-client';
-import { validateEmail } from '@/lib/utils';
+import { useFormValidation } from '@/lib/validation';
+import { ValidatedInput, PasswordInput } from '@/components/form/ValidatedInput';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -23,10 +22,13 @@ export default function RegisterPage() {
     confirmPassword: '',
   });
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const { validateField } = useFormValidation();
+
   const registerMutation = useMutation({
     mutationFn: apiClient.register,
     onSuccess: (data: any) => {
-      login(data.token, data.user);
+      login(data.data.token, data.data.user);
       toast({
         title: 'Welcome to TradeMentor! 🎉',
         description: 'Your account has been created successfully.',
@@ -42,31 +44,52 @@ export default function RegisterPage() {
     },
   });
 
+  const handleFieldChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear field error when user starts typing
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const validateEmailField = (email: string): string => {
+    if (!email) return 'Email is required';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return 'Please enter a valid email address';
+    return '';
+  };
+
+  const validatePasswordField = (password: string): string => {
+    if (!password) return 'Password is required';
+    if (password.length < 6) return 'Password must be at least 6 characters';
+    return '';
+  };
+
+  const validateConfirmPasswordField = (confirmPassword: string, password: string): string => {
+    if (!confirmPassword) return 'Please confirm your password';
+    if (confirmPassword !== password) return 'Passwords do not match';
+    return '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateEmail(formData.email)) {
-      toast({
-        title: 'Invalid email',
-        description: 'Please enter a valid email address.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    // Validate all fields
+    const errors = {
+      email: validateEmailField(formData.email),
+      password: validatePasswordField(formData.password),
+      confirmPassword: validateConfirmPasswordField(formData.confirmPassword, formData.password),
+    };
 
-    if (formData.password.length < 6) {
-      toast({
-        title: 'Password too short',
-        description: 'Password must be at least 6 characters.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    setFieldErrors(errors);
 
-    if (formData.password !== formData.confirmPassword) {
+    // Check if there are any errors
+    const hasErrors = Object.values(errors).some(error => error !== '');
+    if (hasErrors) {
       toast({
-        title: 'Passwords don&apos;t match',
-        description: 'Please make sure both passwords are the same.',
+        title: 'Please fix the errors',
+        description: 'Check the form for validation errors.',
         variant: 'destructive',
       });
       return;
@@ -75,12 +98,8 @@ export default function RegisterPage() {
     registerMutation.mutate({
       email: formData.email,
       password: formData.password,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      confirmPassword: formData.confirmPassword,
     });
-  };
-
-  const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -100,13 +119,14 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
+              <ValidatedInput
                 id="email"
                 type="email"
+                label="Email"
                 placeholder="trader@example.com"
                 value={formData.email}
-                onChange={(e) => updateFormData('email', e.target.value)}
+                onChange={(e) => handleFieldChange('email', e.target.value)}
+                error={fieldErrors.email}
                 disabled={registerMutation.isPending}
                 required
               />
@@ -114,30 +134,28 @@ export default function RegisterPage() {
 
             {/* Password */}
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
+                label="Password"
                 placeholder="••••••••"
                 value={formData.password}
-                onChange={(e) => updateFormData('password', e.target.value)}
+                onChange={(e) => handleFieldChange('password', e.target.value)}
+                error={fieldErrors.password}
                 disabled={registerMutation.isPending}
+                hint="Must be at least 6 characters"
                 required
               />
-              <p className="text-xs text-gray-500">
-                Must be at least 6 characters
-              </p>
             </div>
 
             {/* Confirm Password */}
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
+                label="Confirm Password"
                 placeholder="••••••••"
                 value={formData.confirmPassword}
-                onChange={(e) => updateFormData('confirmPassword', e.target.value)}
+                onChange={(e) => handleFieldChange('confirmPassword', e.target.value)}
+                error={fieldErrors.confirmPassword}
                 disabled={registerMutation.isPending}
                 required
               />

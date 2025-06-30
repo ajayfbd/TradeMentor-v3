@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PatternInsightsCard } from '@/components/pattern-insights/PatternInsightsCard';
 import { cn } from '@/lib/utils';
 import {
   TrendingUp,
@@ -590,7 +591,7 @@ export default function PatternsPage() {
 
           {/* Key Insights */}
           <div>
-            <InsightsCard insights={insightsData} isLoading={isLoadingInsights} />
+            <PatternInsightsCard />
           </div>
         </div>
 

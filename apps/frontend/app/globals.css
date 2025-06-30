@@ -272,13 +272,12 @@
   .tab-active {
     animation: tab-bounce 0.3s ease-in-out;
   }
-
   /* Reduce motion for accessibility */
   @media (prefers-reduced-motion: reduce) {
     .emotion-scale {
       animation: none;
     }
-    
+
     input[type="range"]::-webkit-slider-thumb {
       transition: none;
     }
@@ -289,6 +288,37 @@
 
     .tab-active {
       animation: none;
+    }
+
+    .animate-shake {
+      animation: none;
+    }
+  }
+
+  /* Form validation animations */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+    20%, 40%, 60%, 80% { transform: translateX(2px); }
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  /* Enhanced form focus states */
+  .form-field-focus {
+    @apply ring-2 ring-primary/20 border-primary;
+  }
+
+  /* Touch-friendly form elements */
+  @media (pointer: coarse) {
+    .form-input, .form-textarea, .form-select {
+      @apply min-h-[48px] text-base;
+    }
+    
+    .form-button {
+      @apply min-h-[48px] min-w-[48px];
     }
   }
 }

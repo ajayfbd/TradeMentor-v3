@@ -1,16 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/lib/auth-store';
 import { apiClient } from '@/lib/api-client';
-import { validateEmail } from '@/lib/utils';
+import { useFormValidation, validationConfigs } from '@/lib/validation';
+import { ValidatedInput, PasswordInput } from '@/components/form/ValidatedInput';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,10 +22,24 @@ export default function LoginPage() {
     password: '',
   });
 
+  const { 
+    addField, 
+    validateField, 
+    validateForm, 
+    getFieldError, 
+    hasError 
+  } = useFormValidation();
+
+  // Setup validation rules
+  useEffect(() => {
+    addField('email', validationConfigs.loginForm.email);
+    addField('password', validationConfigs.loginForm.password);
+  }, [addField]);
+
   const loginMutation = useMutation({
     mutationFn: apiClient.login,
     onSuccess: (data) => {
-      login(data.token, data.user);
+      login(data.data.token, data.data.user);
       toast({
         title: 'Welcome back! 👋',
         description: 'Successfully logged in.',
@@ -44,19 +58,11 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateEmail(formData.email)) {
+    const validation = validateForm();
+    if (!validation.isValid) {
       toast({
-        title: 'Invalid email',
-        description: 'Please enter a valid email address.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      toast({
-        title: 'Password too short',
-        description: 'Password must be at least 6 characters.',
+        title: 'Please fix the errors',
+        description: 'Check the form for validation errors.',
         variant: 'destructive',
       });
       return;
@@ -67,6 +73,7 @@ export default function LoginPage() {
 
   const updateFormData = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    validateField(field, value);
   };
 
   return (
@@ -85,32 +92,32 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="trader@example.com"
-                value={formData.email}
-                onChange={(e) => updateFormData('email', e.target.value)}
-                disabled={loginMutation.isPending}
-                required
-              />
-            </div>
+            <ValidatedInput
+              id="email"
+              label="Email"
+              type="email"
+              placeholder="trader@example.com"
+              value={formData.email}
+              onChange={(e) => updateFormData('email', e.target.value)}
+              disabled={loginMutation.isPending}
+              error={getFieldError('email')}
+              success={!!formData.email && !hasError('email')}
+              required
+            />
 
             {/* Password */}
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={(e) => updateFormData('password', e.target.value)}
-                disabled={loginMutation.isPending}
-                required
-              />
-            </div>
+            <PasswordInput
+              id="password"
+              label="Password"
+              placeholder="••••••••"
+              value={formData.password}
+              onChange={(e) => updateFormData('password', e.target.value)}
+              disabled={loginMutation.isPending}
+              error={getFieldError('password')}
+              success={!!formData.password && !hasError('password')}
+              showStrengthIndicator={false}
+              required
+            />
 
             {/* Submit Button */}
             <Button

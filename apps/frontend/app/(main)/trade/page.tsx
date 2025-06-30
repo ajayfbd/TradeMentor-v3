@@ -3,13 +3,12 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/lib/auth-store';
 import { apiClient } from '@/lib/api-client';
 import { cn, formatCurrency, formatRelativeTime } from '@/lib/utils';
 import { Trade } from '@/lib/types';
+import { ValidatedInput } from '@/components/form/ValidatedInput';
 
 const tradeTypes = [
   { value: 'buy', label: 'Buy', color: 'text-green-600' },
@@ -33,6 +32,30 @@ export default function TradeLogPage() {
     outcome: 'win' as 'win' | 'loss' | 'breakeven',
     pnl: '',
   });
+
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const handleFieldChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear field error when user starts typing
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const validateSymbolField = (symbol: string): string => {
+    if (!symbol.trim()) return 'Trading symbol is required';
+    if (symbol.length < 1) return 'Symbol too short';
+    if (symbol.length > 10) return 'Symbol too long (max 10 characters)';
+    if (!/^[A-Z0-9]+$/.test(symbol.toUpperCase())) return 'Symbol can only contain letters and numbers';
+    return '';
+  };
+
+  const validatePnlField = (pnl: string): string => {
+    if (pnl && isNaN(parseFloat(pnl))) return 'P&L must be a valid number';
+    return '';
+  };
 
   // Fetch recent emotion checks to link with trades
   const { data: recentEmotions } = useQuery({
@@ -84,10 +107,20 @@ export default function TradeLogPage() {
       return;
     }
 
-    if (!formData.symbol.trim()) {
+    // Validate all fields
+    const errors = {
+      symbol: validateSymbolField(formData.symbol),
+      pnl: validatePnlField(formData.pnl),
+    };
+
+    setFieldErrors(errors);
+
+    // Check if there are any errors
+    const hasErrors = Object.values(errors).some(error => error !== '');
+    if (hasErrors) {
       toast({
-        title: 'Symbol required',
-        description: 'Please enter a trading symbol.',
+        title: 'Please fix the errors',
+        description: 'Check the form for validation errors.',
         variant: 'destructive',
       });
       return;
@@ -106,10 +139,6 @@ export default function TradeLogPage() {
     });
   };
 
-  const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
   return (
     <div className="max-w-md mx-auto py-8">
       {/* Header */}
@@ -125,12 +154,13 @@ export default function TradeLogPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Symbol Input */}
         <div className="space-y-2">
-          <Label htmlFor="symbol">Symbol *</Label>
-          <Input
+          <ValidatedInput
             id="symbol"
+            label="Symbol"
             placeholder="e.g., AAPL, TSLA, BTC"
             value={formData.symbol}
-            onChange={(e) => updateFormData('symbol', e.target.value.toUpperCase())}
+            onChange={(e) => handleFieldChange('symbol', e.target.value.toUpperCase())}
+            error={fieldErrors.symbol}
             disabled={createTradeMutation.isPending}
             className="uppercase text-lg font-mono"
             maxLength={10}
@@ -140,13 +170,13 @@ export default function TradeLogPage() {
 
         {/* Trade Type */}
         <div className="space-y-3">
-          <Label>Trade Type</Label>
+          <label className="text-sm font-medium">Trade Type</label>
           <div className="grid grid-cols-2 gap-3">
             {tradeTypes.map((type) => (
               <button
                 key={type.value}
                 type="button"
-                onClick={() => updateFormData('type', type.value)}
+                onClick={() => handleFieldChange('type', type.value)}
                 disabled={createTradeMutation.isPending}
                 className={cn(
                   'p-3 rounded-lg border text-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
@@ -164,13 +194,13 @@ export default function TradeLogPage() {
 
         {/* Outcome */}
         <div className="space-y-3">
-          <Label>Outcome</Label>
+          <label className="text-sm font-medium">Outcome</label>
           <div className="grid gap-2">
             {outcomes.map((outcome) => (
               <button
                 key={outcome.value}
                 type="button"
-                onClick={() => updateFormData('outcome', outcome.value)}
+                onClick={() => handleFieldChange('outcome', outcome.value)}
                 disabled={createTradeMutation.isPending}
                 className={cn(
                   'p-3 rounded-lg border text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
@@ -188,18 +218,19 @@ export default function TradeLogPage() {
 
         {/* P&L */}
         <div className="space-y-2">
-          <Label htmlFor="pnl">Profit/Loss (optional)</Label>
+          <label className="text-sm font-medium">Profit/Loss (optional)</label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10">
               $
             </span>
-            <Input
+            <ValidatedInput
               id="pnl"
               type="number"
               step="0.01"
               placeholder="0.00"
               value={formData.pnl}
-              onChange={(e) => updateFormData('pnl', e.target.value)}
+              onChange={(e) => handleFieldChange('pnl', e.target.value)}
+              error={fieldErrors.pnl}
               disabled={createTradeMutation.isPending}
               className="pl-8"
             />
