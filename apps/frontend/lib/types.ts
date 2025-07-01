@@ -104,8 +104,11 @@ export interface AuthResponse {
   message: string;
   data: {
     token: string;
+    refreshToken?: string;
     user: User;
   };
+  token: string; // For backwards compatibility
+  refreshToken?: string; // For backwards compatibility
   errors: string[];
   timestamp: string;
 }
@@ -150,6 +153,41 @@ export interface ApiError {
   message: string;
   code?: string;
   details?: Record<string, string[]>;
+}
+
+// Enhanced API types for new endpoints
+export interface UserSessionResponse {
+  id: string;
+  userId: string;
+  date: string;
+  emotionsLogged: number;
+  tradesLogged: number;
+  sessionQualityScore?: number;
+  createdAt: string;
+}
+
+export interface UserInsightResponse {
+  id: string;
+  userId: string;
+  insightType: string;
+  title: string;
+  description: string;
+  data?: any;
+  confidenceScore: number;
+  generatedAt: string;
+  isActive: boolean;
+}
+
+export interface CreateSessionRequest {
+  date: string;
+  emotionsLogged?: number;
+  tradesLogged?: number;
+}
+
+export interface UpdateInsightRequest {
+  title?: string;
+  description?: string;
+  isActive?: boolean;
 }
 
 // UI State types
