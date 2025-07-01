@@ -85,6 +85,8 @@ builder.Services.AddScoped<IPatternService, PatternService>();
 builder.Services.AddScoped<IEmotionService, EmotionService>();
 builder.Services.AddScoped<IWeeklyReflectionService, WeeklyReflectionService>();
 builder.Services.AddScoped<IMonthlyGoalService, MonthlyGoalService>();
+builder.Services.AddScoped<IUserSessionService, UserSessionService>();
+builder.Services.AddScoped<IUserInsightService, UserInsightService>();
 
 // Memory Cache for analytics
 builder.Services.AddMemoryCache();
@@ -257,7 +259,9 @@ app.MapGet("/api/info", () => new
         "/api/trades - Trading data endpoints",
         "/api/patterns - Pattern analysis endpoints",
         "/api/weeklyreflections - Weekly reflection endpoints",
-        "/api/monthlygoals - Monthly goal endpoints"
+        "/api/monthlygoals - Monthly goal endpoints",
+        "/api/usersessions - User session tracking endpoints",
+        "/api/userinsights - AI-generated user insights endpoints"
     }
 });
 
