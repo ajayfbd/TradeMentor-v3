@@ -1,0 +1,8 @@
+{
+  "symbol": "AAPL",
+  "type": "buy",
+  "quantity": 10,
+  "entryPrice": 150.50,
+  "outcome": "win",
+  "pnl": 125.50
+}

@@ -8,6 +8,7 @@ using TradeMentor.Api.Data;
 using TradeMentor.Api.Data.Repositories;
 using TradeMentor.Api.Models;
 using TradeMentor.Api.Services;
+using TradeMentor.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -82,6 +83,8 @@ builder.Services.AddScoped<ITradeRepository, TradeRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPatternService, PatternService>();
 builder.Services.AddScoped<IEmotionService, EmotionService>();
+builder.Services.AddScoped<IWeeklyReflectionService, WeeklyReflectionService>();
+builder.Services.AddScoped<IMonthlyGoalService, MonthlyGoalService>();
 
 // Memory Cache for analytics
 builder.Services.AddMemoryCache();
@@ -205,6 +208,9 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+// Rate limiting middleware for security
+app.UseMiddleware<RateLimitingMiddleware>();
+
 // CORS must be after UseRouting and before UseAuthentication
 app.UseCors("TradeMentorPolicy");
 
@@ -249,7 +255,9 @@ app.MapGet("/api/info", () => new
         "/api/auth - Authentication endpoints",
         "/api/emotions - Emotion tracking endpoints",
         "/api/trades - Trading data endpoints",
-        "/api/patterns - Pattern analysis endpoints"
+        "/api/patterns - Pattern analysis endpoints",
+        "/api/weeklyreflections - Weekly reflection endpoints",
+        "/api/monthlygoals - Monthly goal endpoints"
     }
 });
 

@@ -5,6 +5,7 @@ using System.Text;
 using TradeMentor.Api.Data;
 using TradeMentor.Api.Models;
 using TradeMentor.Api.Data.Repositories;
+using TradeMentor.Api.Validation;
 using Microsoft.EntityFrameworkCore;
 
 namespace TradeMentor.Api.Services;
@@ -47,11 +48,12 @@ public class AuthService : IAuthService
                 return ApiResponse<LoginResponse>.ErrorResponse("Invalid email or password");
             }
 
-            // Verify password (commented out for demo - implement with proper hashing)
-            // if (!VerifyPassword(request.Password, user.PasswordHash))
-            // {
-            //     return ApiResponse<LoginResponse>.ErrorResponse("Invalid email or password");
-            // }
+            // SECURITY FIX: Enable password verification
+            if (string.IsNullOrEmpty(user.PasswordHash) || !VerifyPassword(request.Password, user.PasswordHash))
+            {
+                _logger.LogWarning("Failed password verification for user: {UserId}", user.Id);
+                return ApiResponse<LoginResponse>.ErrorResponse("Invalid email or password");
+            }
 
             user.LastLoginAt = DateTime.UtcNow;
             await _userRepository.UpdateAsync(user);
@@ -89,6 +91,25 @@ public class AuthService : IAuthService
     {
         try
         {
+            // Enhanced input validation
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return ApiResponse<UserDto>.ErrorResponse("Email and password are required");
+            }
+
+            // Email validation
+            if (!IsValidEmail(request.Email))
+            {
+                return ApiResponse<UserDto>.ErrorResponse("Invalid email format");
+            }
+
+            // Password validation
+            if (!IsValidPassword(request.Password))
+            {
+                return ApiResponse<UserDto>.ErrorResponse(
+                    "Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character");
+            }
+
             if (await _userRepository.EmailExistsAsync(request.Email))
             {
                 return ApiResponse<UserDto>.ErrorResponse("Email already exists");
@@ -96,17 +117,15 @@ public class AuthService : IAuthService
 
             var user = new User
             {
-                Email = request.Email,
+                Email = request.Email.ToLower().Trim(),
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 UserName = request.Email,
                 EmailConfirmed = true,
                 CreatedAt = DateTime.UtcNow,
-                IsActive = true
+                IsActive = true,
+                PasswordHash = HashPassword(request.Password) // SECURITY FIX: Enable password hashing
             };
-
-            // Hash password (implement with proper hashing library)
-            // user.PasswordHash = HashPassword(request.Password);
 
             await _userRepository.AddAsync(user);
 
@@ -119,6 +138,8 @@ public class AuthService : IAuthService
                 StreakCount = user.StreakCount,
                 CreatedAt = user.CreatedAt
             };
+
+            _logger.LogInformation("New user registered: {UserId}", user.Id);
 
             return ApiResponse<UserDto>.SuccessResponse(userDto, "Registration successful");
         }
@@ -143,7 +164,7 @@ public class AuthService : IAuthService
 
     public string GenerateJwtToken(User user)
     {
-        var jwtSecret = _configuration["JwtSettings:SecretKey"] ?? 
+        var jwtSecret = _configuration["Jwt:Secret"] ?? 
             Environment.GetEnvironmentVariable("JWT_SECRET") ?? 
             "your-super-secret-key-change-this-in-production-make-it-256-bit";
 
@@ -161,8 +182,8 @@ public class AuthService : IAuthService
         };
 
         var token = new JwtSecurityToken(
-            issuer: _configuration["JwtSettings:Issuer"],
-            audience: _configuration["JwtSettings:Audience"],
+            issuer: null, // Remove issuer requirement
+            audience: null, // Remove audience requirement
             claims: claims,
             expires: DateTime.UtcNow.AddDays(7),
             signingCredentials: credentials
@@ -178,13 +199,58 @@ public class AuthService : IAuthService
 
     public string HashPassword(string password)
     {
-        // Implement with BCrypt or similar
-        return BCrypt.Net.BCrypt.HashPassword(password, BCrypt.Net.BCrypt.GenerateSalt(12));
+        // Use BCrypt with work factor of 12 for security
+        return BCrypt.Net.BCrypt.HashPassword(password, 12);
     }
 
     public bool VerifyPassword(string password, string hash)
     {
-        // Implement with BCrypt or similar
-        return BCrypt.Net.BCrypt.Verify(password, hash);
+        try
+        {
+            return BCrypt.Net.BCrypt.Verify(password, hash);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying password");
+            return false;
+        }
+    }
+
+    private bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email) || email.Length > 254)
+            return false;
+        
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool IsValidPassword(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+            return false;
+
+        // Password requirements:
+        // - At least 8 characters
+        // - At least one uppercase letter
+        // - At least one lowercase letter
+        // - At least one digit
+        // - At least one special character
+        if (password.Length < 8 || password.Length > 128)
+            return false;
+
+        bool hasUpper = password.Any(char.IsUpper);
+        bool hasLower = password.Any(char.IsLower);
+        bool hasDigit = password.Any(char.IsDigit);
+        bool hasSpecial = password.Any(ch => !char.IsLetterOrDigit(ch));
+
+        return hasUpper && hasLower && hasDigit && hasSpecial;
     }
 }

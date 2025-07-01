@@ -26,4 +26,6 @@ public class User : IdentityUser
     // Navigation properties
     public virtual ICollection<EmotionCheck> EmotionChecks { get; set; } = new List<EmotionCheck>();
     public virtual ICollection<Trade> Trades { get; set; } = new List<Trade>();
+    public virtual ICollection<WeeklyReflection> WeeklyReflections { get; set; } = new List<WeeklyReflection>();
+    public virtual ICollection<MonthlyGoal> MonthlyGoals { get; set; } = new List<MonthlyGoal>();
 }
