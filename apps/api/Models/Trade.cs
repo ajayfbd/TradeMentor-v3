@@ -35,6 +35,13 @@ public class Trade
     
     public Guid? EmotionCheckId { get; set; }
     
+    // New enhanced fields
+    [Range(1, 5)]
+    public int? SetupQuality { get; set; }
+    
+    [Range(1, 5)]
+    public int? ExecutionQuality { get; set; }
+    
     public DateTime EntryTime { get; set; } = DateTime.UtcNow;
     public DateTime? ExitTime { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

@@ -28,4 +28,6 @@ public class User : IdentityUser
     public virtual ICollection<Trade> Trades { get; set; } = new List<Trade>();
     public virtual ICollection<WeeklyReflection> WeeklyReflections { get; set; } = new List<WeeklyReflection>();
     public virtual ICollection<MonthlyGoal> MonthlyGoals { get; set; } = new List<MonthlyGoal>();
+    public virtual ICollection<UserSession> Sessions { get; set; } = new List<UserSession>();
+    public virtual ICollection<UserInsight> Insights { get; set; } = new List<UserInsight>();
 }
