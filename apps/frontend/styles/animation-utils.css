@@ -1,0 +1,304 @@
+/* Animation Utilities for TradeMentor Motion Design System */
+
+/* Emotion-based Animations */
+@keyframes anxiety-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+@keyframes steady-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+@keyframes confident-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(16, 185, 129, 0.6); }
+}
+
+/* Page Transitions */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-in-left {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes scale-out {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(0.95); opacity: 0; }
+}
+
+/* Success & Error States */
+@keyframes success-bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-10px); }
+  60% { transform: translateY(-5px); }
+}
+
+@keyframes error-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10px); }
+  40% { transform: translateX(10px); }
+  60% { transform: translateX(-10px); }
+  80% { transform: translateX(10px); }
+}
+
+@keyframes warning-wobble {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(-5deg); }
+  30% { transform: rotate(5deg); }
+  45% { transform: rotate(-3deg); }
+  60% { transform: rotate(3deg); }
+  75% { transform: rotate(-1deg); }
+}
+
+/* Loading States */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Chart and Visualization Animations */
+@keyframes draw-line {
+  from { stroke-dashoffset: 1000; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes fill-bar {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes counter-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0%); }
+}
+
+/* Micro-interactions */
+@keyframes button-press {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes hover-lift {
+  0% { transform: translateY(0) scale(1); }
+  100% { transform: translateY(-2px) scale(1.02); }
+}
+
+@keyframes focus-ring {
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+  100% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+}
+
+/* Page Transition Utility Classes */
+.animate-fade-in {
+  animation: fade-in 300ms ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 400ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+.animate-slide-down {
+  animation: slide-down 400ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 400ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 400ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 300ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+.animate-scale-out {
+  animation: scale-out 300ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* State Animation Classes */
+.animate-success {
+  animation: success-bounce 800ms ease-out;
+}
+
+.animate-error {
+  animation: error-shake 500ms ease-in-out;
+}
+
+.animate-warning {
+  animation: warning-wobble 600ms ease-in-out;
+}
+
+/* Loading Animation Classes */
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0.0, 0.6, 1) infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0) 0%, 
+    rgba(255, 255, 255, 0.2) 20%, 
+    rgba(255, 255, 255, 0.5) 60%, 
+    rgba(255, 255, 255, 0)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Emotion-specific Animation Classes */
+.emotion-low {
+  animation: anxiety-shake 0.5s ease-in-out;
+}
+
+.emotion-mid {
+  animation: steady-pulse 2s ease-in-out infinite;
+}
+
+.emotion-high {
+  animation: confident-glow 1.5s ease-in-out infinite;
+}
+
+/* Chart Animation Classes */
+.animate-draw-line {
+  stroke-dasharray: 1000;
+  animation: draw-line 1s ease-in-out forwards;
+}
+
+.animate-fill-bar {
+  transform-origin: bottom;
+  animation: fill-bar 800ms ease-out forwards;
+}
+
+.animate-counter {
+  animation: counter-up 600ms ease-out forwards;
+}
+
+/* Interactive Animation Classes */
+.animate-button-press {
+  animation: button-press 150ms ease-in-out;
+}
+
+.animate-hover-lift {
+  transition: transform 200ms ease-out;
+}
+
+.animate-hover-lift:hover {
+  animation: hover-lift 200ms ease-out forwards;
+}
+
+.animate-focus-ring {
+  animation: focus-ring 600ms ease-out;
+}
+
+/* Stagger Animation Utilities */
+.animate-stagger-1 {
+  animation-delay: 100ms;
+}
+
+.animate-stagger-2 {
+  animation-delay: 200ms;
+}
+
+.animate-stagger-3 {
+  animation-delay: 300ms;
+}
+
+.animate-stagger-4 {
+  animation-delay: 400ms;
+}
+
+.animate-stagger-5 {
+  animation-delay: 500ms;
+}
+
+/* Accessibility - Respect user preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  /* Keep essential feedback animations */
+  .animate-success,
+  .animate-error,
+  .animate-warning {
+    animation-duration: 200ms !important;
+  }
+}
+
+/* Performance optimizations */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.smooth-animation {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Dark mode adaptations */
+@media (prefers-color-scheme: dark) {
+  @keyframes confident-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.4); }
+    50% { box-shadow: 0 0 40px rgba(34, 197, 94, 0.7); }
+  }
+  
+  @keyframes focus-ring {
+    0% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.4); }
+    100% { box-shadow: 0 0 0 8px rgba(96, 165, 250, 0); }
+  }
+}
